@@ -1,0 +1,90 @@
+.control-panel {
+  background: #f8fafc;
+  padding: 0.8rem 1.2rem;
+  margin-bottom: 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.8rem;
+}
+
+.control-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 1rem;
+}
+
+.control-panel label {
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+select, input {
+  padding: 6px 12px;
+  border: 1px solid #cbdde6;
+  background: white;
+  font-size: 0.9rem;
+}
+
+select {
+  min-width: 180px;
+}
+
+input {
+  min-width: 200px;
+}
+
+.prod-test-urls {
+  font-family: monospace;
+  font-size: 0.8rem;
+  background: #eef2f7;
+  padding: 4px 12px;
+  border-radius: 20px;
+  display: inline-flex;
+  gap: 1rem;
+}
+.prod-test-urls a {
+  color: #1e2f3e;
+  text-decoration: none;
+  border-bottom: 1px dotted #cbdde6;
+}
+.prod-test-urls a:hover {
+  border-bottom: 1px solid #1e2f3e;
+}
+
+.reset-icon {
+  background: none;
+  border: none;
+  font-size: 1.2rem;
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: 30px;
+  color: #2c6e9e;
+}
+.reset-icon:hover {
+  background: #e9f0f5;
+}
+
+.base-info {
+  font-family: monospace;
+  font-size: 0.75rem;
+  background: #eef2f7;
+  padding: 4px 12px;
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 0.8rem;
+}
+.base-info a {
+  color: #1e2f3e;
+  text-decoration: none;
+  border-bottom: 1px dotted #cbdde6;
+}
+.base-info a:hover {
+  border-bottom: 1px solid #1e2f3e;
+}
+
+.error-msg {
+  color: #b33;
+  font-size: 0.8rem;
+  padding: 4px 12px;
+}

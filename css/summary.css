@@ -1,0 +1,52 @@
+.summary {
+  margin: 2rem 0 1rem;
+  background: #f8fafc;
+  padding: 1rem 1.5rem;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1.5rem;
+  justify-content: space-between;
+}
+.summary-block {
+  flex: 1;
+  min-width: 200px;
+}
+.summary-block h4 {
+  margin: 0 0 0.5rem;
+  border-bottom: 1px solid #cbdde6;
+}
+.stat-number {
+  font-size: 1.8rem;
+  font-weight: 700;
+  margin: 0.2rem 0;
+}
+.stat-detail {
+  font-size: 0.75rem;
+  color: #2c6e9e;
+}
+.comparison {
+  margin-top: 8px;
+  font-weight: 600;
+  display: inline-block;
+}
+.comparison .main-line {
+  color: #2b6e3c;
+  display: block;
+  font-weight: bold;
+}
+.comparison .sub-line {
+  color: #6c7a89;
+  font-weight: normal;
+  font-size: 0.75rem;
+  margin-top: 2px;
+  display: block;
+}
+.comparison.green .main-line {
+  color: #2b6e3c;
+}
+.comparison.red .main-line {
+  color: #b33;
+}
+.comparison.orange .main-line {
+  color: #e67e22;
+}

@@ -1,0 +1,32 @@
+* {
+  box-sizing: border-box;
+}
+
+body {
+  background: #f0f4f8;
+  font-family: 'Segoe UI', Roboto, system-ui, sans-serif;
+  margin: 0;
+  padding: 2rem 1rem;
+  color: #1e2f3e;
+}
+
+.container {
+  max-width: 1400px;
+  margin: 0 auto;
+  background: white;
+  box-shadow: 0 12px 25px rgba(0, 0, 0, 0.08);
+  padding: 1.5rem 1rem 2rem;
+}
+
+h1 {
+  font-size: 1.7rem;
+  margin: 0 0 0.2rem;
+}
+
+.sub {
+  border-left: 3px solid #2c6e9e;
+  padding-left: 1rem;
+  margin: 0.5rem 0 1rem;
+  color: #2c6e9e;
+  font-size: 0.9rem;
+}

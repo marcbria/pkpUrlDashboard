@@ -1,0 +1,105 @@
+.badge {
+  background: #d4e3ed;
+  padding: 2px 8px;
+  font-size: 0.7rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.badge.yes {
+  background: #c0e0d0;
+  color: #135b3a;
+}
+.badge.no {
+  background: #f0e0e0;
+  color: #a03d3d;
+}
+
+button {
+  background: #2c6e9e;
+  border: none;
+  color: white;
+  padding: 6px 18px;
+  font-weight: 500;
+  cursor: pointer;
+  font-size: 0.8rem;
+  border-radius: 30px;
+}
+button:hover {
+  background: #1f4f73;
+}
+
+.run-tests-btn {
+  background: #2c6e9e;
+  border: none;
+  color: white;
+  padding: 10px 32px;
+  font-weight: 600;
+  font-size: 1.1rem;
+  cursor: pointer;
+  border-radius: 40px;
+  box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+  transition: all 0.2s;
+}
+.run-tests-btn:hover {
+  background: #1f4f73;
+  transform: scale(1.02);
+}
+
+.toolbar {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 1rem;
+  margin-bottom: 0.5rem;
+}
+.progress {
+  font-size: 0.8rem;
+  background: #eef2f7;
+  padding: 4px 12px;
+  margin-right: auto;
+}
+.error-toggle {
+  background: #eef2f7;
+  color: #1e2f3e;
+  padding: 4px 16px;
+  border-radius: 30px;
+  cursor: pointer;
+  font-weight: 500;
+}
+.error-toggle.active {
+  background: #d4edda;
+  color: #155724;
+}
+
+.copy-btn {
+  display: inline-block;
+  margin-top: 1rem;
+  font-size: 0.85rem;
+  background: #e9f0f5;
+  padding: 6px 12px;
+  border-radius: 30px;
+  text-decoration: none;
+  color: #2c6e9e;
+  cursor: pointer;
+}
+.copy-btn:hover {
+  background: #d4e3ed;
+}
+
+footer {
+  font-size: 0.8rem;
+  text-align: left;
+  margin-top: 2rem;
+  color: #5b7f95;
+  border-top: 1px solid #e2edf5;
+  padding-top: 1.5rem;
+}
+
+.status-loading {
+  animation: pulse 1s infinite;
+  opacity: 0.6;
+}
+@keyframes pulse {
+  0% { opacity: 0.4; }
+  100% { opacity: 1; }
+}
