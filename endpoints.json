@@ -17,14 +17,14 @@
         { "pathTemplate": "/index.php/{alias}/issue/current", "desc": "current issue (basic)", "tested": false, "modes": ["basic"] },
         { "pathTemplate": "/index.php/{alias}/issue/archive", "desc": "archive (basic)", "tested": false, "modes": ["basic"] },
         { "pathTemplate": "/index.php/{alias}/$$$call$$$/page/page/css?name=stylesheet", "desc": "$$$call$$$ (basic)", "tested": false, "modes": ["basic"] },
-        { "path": "/about", "desc": "about (hideContext)", "tested": true, "modes": ["hideContext"] },
-        { "path": "/about/submissions", "desc": "Submissions (hideContext)", "tested": true, "modes": ["hideContext"] },
-        { "path": "/about/editorialTeam", "desc": "Editorial team (hideContext)", "tested": false, "modes": ["hideContext"] },
-        { "path": "/about/contact", "desc": "Contact (hideContext)", "tested": false, "modes": ["hideContext"] },
-        { "path": "/about/privacy", "desc": "Privacy (hideContext)", "tested": false, "modes": ["hideContext"] },
-        { "path": "/issue/current", "desc": "Current issue (hideContext)", "tested": true, "modes": ["hideContext"] },
-        { "path": "/issue/archive", "desc": "Archive (hideContext)", "tested": true, "modes": ["hideContext"] },
-        { "path": "/$$$call$$$/page/page/css?name=stylesheet", "desc": "$$$call$$$ (hideContext)", "tested": false, "modes": ["hideContext"] }
+        { "path": "/about", "desc": "about (hide)", "tested": true, "modes": ["hideContext"] },
+        { "path": "/about/submissions", "desc": "Submissions (hide)", "tested": true, "modes": ["hideContext"] },
+        { "path": "/about/editorialTeam", "desc": "Editorial team (hide)", "tested": false, "modes": ["hideContext"] },
+        { "path": "/about/contact", "desc": "Contact (hide)", "tested": false, "modes": ["hideContext"] },
+        { "path": "/about/privacy", "desc": "Privacy (hide)", "tested": false, "modes": ["hideContext"] },
+        { "path": "/issue/current", "desc": "Current issue (hide)", "tested": true, "modes": ["hideContext"] },
+        { "path": "/issue/archive", "desc": "Archive (hide)", "tested": true, "modes": ["hideContext"] },
+        { "path": "/$$$call$$$/page/page/css?name=stylesheet", "desc": "$$$call$$$ (hide)", "tested": false, "modes": ["hideContext"] }
       ]
     },
     {
