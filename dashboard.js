@@ -1,19 +1,19 @@
 // ============================================================
 // dashboard.js - PKP URL Health Monitor
-// Version: external opcional, orden de modos, corrección OAI
+// Version: simplified - no automatic sorting, relies on endpoints.json order
 // ============================================================
 
 // -------------------------------
 // Constants & Configuration
 // -------------------------------
 const PROXY_PATH = "proxy.php";
-const EXTERNAL_DELAY_US = 0;      // sin delay
+const EXTERNAL_DELAY_US = 0;          // no delay (microseconds)
 const CSV_FILE = "journals.csv";
 const ENDPOINTS_FILE = "endpoints.json";
 
 // Global state
 let journals = [];
-let externalBaseUrl = "";          // almacenamos sin protocolo
+let externalBaseUrl = "";              // stored without protocol
 let externalContext = "";
 let currentErrorOnly = false;
 
@@ -24,7 +24,7 @@ function normalizeExternalBase(raw) {
   if (!raw) return "";
   let s = raw.trim();
   if (s.startsWith('http://') || s.startsWith('https://')) {
-    return null; // error: no protocolo
+    return null; // error: protocol not allowed
   }
   return s;
 }
@@ -55,39 +55,38 @@ async function registerExternalDomain(domain) {
   } catch(e) { /* ignore */ }
 }
 
-// Construye URL para external usando externalContext, no el alias
+// Build external URL using externalContext (not alias)
 function getExternalUrl(path, pathTemplate, modes, alias) {
   if (!externalBaseUrl || !externalContext) return null;
   let fullBase = getFullExternalBase();
   if (!fullBase) return null;
   fullBase = fullBase.replace(/\/$/, '');
   
-  // Casos especiales: raíz
+  // Special cases: root
   if (path === "") return fullBase;
   if (path === "http://") return fullBase.replace(/^https:/, 'http:');
   
-  // Si tiene pathTemplate, reemplazar {alias} por externalContext
+  // If pathTemplate exists, replace {alias} with externalContext
   if (pathTemplate && pathTemplate.includes('{alias}')) {
     let finalPath = pathTemplate.replace(/{alias}/g, externalContext);
     return fullBase + finalPath;
   }
   
-  // Determinar el modo principal (basic, cleanUrls, hideContext)
+  // Determine primary mode (basic, cleanUrls, hideContext)
   let mode = 'basic';
   if (modes.includes('cleanUrls')) mode = 'cleanUrls';
   else if (modes.includes('hideContext')) mode = 'hideContext';
   else if (modes.includes('basic')) mode = 'basic';
   
-  // Construir según el modo
+  // Build according to mode
   if (mode === 'basic') {
-    // Para rutas basic, deben incluir /index.php/contexto/
     if (path.startsWith('/index.php/')) {
       return fullBase + path.replace('/index.php/', `/index.php/${externalContext}/`);
     } else {
       let normalizedPath = path.startsWith('/') ? path : '/' + path;
       return fullBase + `/index.php/${externalContext}${normalizedPath}`;
     }
-  } else { // cleanUrls o hideContext
+  } else { // cleanUrls or hideContext
     let normalizedPath = path.startsWith('/') ? path : '/' + path;
     return fullBase + `/${externalContext}${normalizedPath}`;
   }
@@ -116,16 +115,20 @@ function getBgClass(status) {
   return "bg-error";
 }
 
-async function testAndRenderCell(cell, url, isRoot = false, useDelay = false) {
+async function testAndRenderCell(cell, url, isRoot = false, useDelay = false, displayPath = null) {
   const { status } = await checkUrlViaProxy(url, useDelay);
   const bgClass = getBgClass(status);
-  let displayUrl = url;
-  if (!isRoot) {
-    try {
-      const urlObj = new URL(url);
-      displayUrl = urlObj.pathname + urlObj.search;
-      if (displayUrl === "") displayUrl = "/";
-    } catch(e) { displayUrl = url; }
+  let displayUrl = displayPath;
+  if (!displayUrl) {
+    if (isRoot) {
+      displayUrl = url;
+    } else {
+      try {
+        const urlObj = new URL(url);
+        displayUrl = urlObj.pathname + urlObj.search;
+        if (displayUrl === "") displayUrl = "/";
+      } catch(e) { displayUrl = url; }
+    }
   }
   const icon = (status >= 200 && status < 300) ? "" : (status >= 300 && status < 400) ? "🔄" : (status === 401 || status === 403) ? "🔒" : "❌";
   cell.innerHTML = `<span class="status-bg ${bgClass}">${icon} <a href="${url}" target="_blank">${displayUrl}</a></span>`;
@@ -184,7 +187,7 @@ async function loadJournalsFromCSV() {
       document.getElementById('externalContext').value = "";
     }
 
-    // Mostrar PROD/TEST urls
+    // Show PROD/TEST urls
     updateProdTestUrls();
     setTimeout(() => runAllTests(), 100);
   } catch (err) {
@@ -210,16 +213,8 @@ async function loadEndpointsFromJSON() {
   try {
     const response = await fetch(ENDPOINTS_FILE);
     const data = await response.json();
-    // Ordenar endpoints dentro de cada grupo según modo: basic, cleanUrls, hideContext
-    endpointGroups = data.groups.map(group => {
-      const order = { "basic": 1, "cleanUrls": 2, "hideContext": 3 };
-      const sortedEndpoints = [...group.endpoints].sort((a, b) => {
-        const aOrder = Math.min(...(a.modes || []).map(m => order[m] || 999));
-        const bOrder = Math.min(...(b.modes || []).map(m => order[m] || 999));
-        return aOrder - bOrder;
-      });
-      return { ...group, endpoints: sortedEndpoints };
-    });
+    // No sorting - preserve order from JSON file
+    endpointGroups = data.groups;
   } catch (err) {
     console.error('Failed to load endpoints.json', err);
     endpointGroups = [];
@@ -279,7 +274,7 @@ function setupColumnToggles() {
         newTh.classList.add("col-compact");
       }
     });
-    // Solo compactar automáticamente las columnas de modo y badge, no external
+    // Only auto-compact mode columns and badge, not external
     const shouldBeCompact = (colName === "basic" || colName === "clean" || colName === "hide" || colName === "badge");
     if (shouldBeCompact) {
       newTh.innerText = shortText;
@@ -511,12 +506,13 @@ async function buildTable(groups, prodBase, testBase, alias, hasExternal) {
       tr._modes = ep.modes;
 
       const isRootUrl = (ep.path === "" || ep.path === "http://");
+      const displayPath = isRootUrl ? null : ep.path;
       const promises = [
-        testAndRenderCell(tdProd, prodUrl, isRootUrl, false),
-        testAndRenderCell(tdTest, testUrl, isRootUrl, false)
+        testAndRenderCell(tdProd, prodUrl, isRootUrl, false, displayPath),
+        testAndRenderCell(tdTest, testUrl, isRootUrl, false, displayPath)
       ];
       if (hasExternal && externalUrl) {
-        promises.push(testAndRenderCell(tdExternal, externalUrl, isRootUrl, true));
+        promises.push(testAndRenderCell(tdExternal, externalUrl, isRootUrl, true, displayPath));
       } else {
         promises.push(Promise.resolve({ status: 0, isError: false }));
       }
@@ -559,12 +555,12 @@ async function runAllTests() {
   if (rawExternalBase !== "") {
     const normalized = normalizeExternalBase(rawExternalBase);
     if (normalized === null) {
-      errorDiv.innerHTML = "❌ Error: External base debe ser sin protocolo (ej. dominio.com)";
+      errorDiv.innerHTML = "❌ Error: External base must be without protocol (e.g., domain.com)";
       hasExternal = false;
       externalBaseUrl = "";
       externalContext = "";
     } else if (context === "") {
-      errorDiv.innerHTML = "❌ Error: Si añades una base externa, debes proporcionar un context.";
+      errorDiv.innerHTML = "❌ Error: If you add an external base, you must provide a context.";
       hasExternal = false;
       externalBaseUrl = "";
       externalContext = "";
@@ -578,7 +574,7 @@ async function runAllTests() {
         const urlObj = new URL(fullUrl);
         domain = urlObj.hostname;
         await registerExternalDomain(domain);
-      } catch(e) { errorDiv.innerHTML = "❌ Error en dominio externo"; hasExternal = false; }
+      } catch(e) { errorDiv.innerHTML = "❌ External domain error"; hasExternal = false; }
     }
   } else {
     externalBaseUrl = "";
@@ -586,7 +582,7 @@ async function runAllTests() {
     hasExternal = false;
   }
 
-  // Guardar estado en URL
+  // Save state to URL
   const urlParams = new URLSearchParams();
   urlParams.set('journal', alias);
   if (hasExternal) {
@@ -610,7 +606,7 @@ function resetExternalToDemo() {
   document.getElementById("externalBaseUrl").value = "ojs33.testdrive.publicknowledgeproject.org";
   document.getElementById("externalContext").value = "testdrive-journal";
   document.getElementById("externalError").innerHTML = "";
-  // No ejecutar pruebas automáticamente
+  // Do not auto-run tests
 }
 
 function populateSelectAndStart() {
@@ -633,7 +629,7 @@ function populateSelectAndStart() {
     }
     applyErrorFilter();
   });
-  // Cargar endpoints y luego CSV
+  // Load endpoints then CSV
   loadEndpointsFromJSON().then(() => loadJournalsFromCSV());
 }
 
