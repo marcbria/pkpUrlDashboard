@@ -72,24 +72,28 @@ function getExternalUrl(path, pathTemplate, modes, alias) {
     return fullBase + finalPath;
   }
   
-  // Determine primary mode (basic, cleanUrls, hideContext)
-  let mode = 'basic';
-  if (modes.includes('cleanUrls')) mode = 'cleanUrls';
-  else if (modes.includes('hideContext')) mode = 'hideContext';
-  else if (modes.includes('basic')) mode = 'basic';
+  // Normalize path
+  let normalizedPath = path.startsWith('/') ? path : '/' + path;
   
-  // Build according to mode
-  if (mode === 'basic') {
-    if (path.startsWith('/index.php/')) {
-      return fullBase + path.replace('/index.php/', `/index.php/${externalContext}/`);
-    } else {
-      let normalizedPath = path.startsWith('/') ? path : '/' + path;
-      return fullBase + `/index.php/${externalContext}${normalizedPath}`;
-    }
-  } else { // cleanUrls or hideContext
-    let normalizedPath = path.startsWith('/') ? path : '/' + path;
-    return fullBase + `/${externalContext}${normalizedPath}`;
+  // Apply cleanUrls: remove /index.php if present
+  let pathWithoutIndexPhp = normalizedPath;
+  if (modes.includes('cleanUrls')) {
+    pathWithoutIndexPhp = pathWithoutIndexPhp.replace(/^\/index\.php/, '');
+    if (pathWithoutIndexPhp === '') pathWithoutIndexPhp = '/';
   }
+  
+  // Apply hideContext: add context only if NOT hiding it
+  let finalPath = pathWithoutIndexPhp;
+  if (!modes.includes('hideContext')) {
+    // Add context slug
+    if (finalPath.startsWith('/')) {
+      finalPath = `/${externalContext}${finalPath}`;
+    } else {
+      finalPath = `/${externalContext}/${finalPath}`;
+    }
+  }
+  
+  return fullBase + finalPath;
 }
 
 async function checkUrlViaProxy(url, useDelay = false) {
