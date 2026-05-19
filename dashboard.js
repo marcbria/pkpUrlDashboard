@@ -1,6 +1,7 @@
 // ============================================================
 // dashboard.js - PKP URL Health Monitor
 // Simplified version: URLs built solely from pathTemplate replacement
+// Added mode filters (basic, cleanUrls, hideContext)
 // ============================================================
 
 // -------------------------------
@@ -15,6 +16,13 @@ let journals = [];
 let externalBaseUrl = "";
 let externalContext = "";
 let currentErrorOnly = false;
+
+// Active mode filters (initialized from checkboxes)
+let activeModes = {
+  basic: true,
+  cleanUrls: true,
+  hideContext: true
+};
 
 // -------------------------------
 // Helper Functions
@@ -134,7 +142,7 @@ async function loadJournalsFromCSV() {
     document.getElementById('externalContext').value = initialExternalContext || "";
 
     updateProdTestUrls();
-    setTimeout(() => runAllTests(), 100);
+    // No auto-run
   } catch (err) {
     console.error('Failed to load journals.csv', err);
     document.getElementById('progressMsg').innerText = 'Error loading journals.csv';
@@ -158,7 +166,7 @@ async function loadEndpointsFromJSON() {
   try {
     const response = await fetch(ENDPOINTS_FILE);
     const data = await response.json();
-    endpointGroups = data.groups; // no sorting
+    endpointGroups = data.groups;
   } catch (err) {
     console.error('Failed to load endpoints.json', err);
     endpointGroups = [];
@@ -333,7 +341,7 @@ async function buildTable(groups, prodBase, testBase, alias, hasExternal, extern
     <th data-col="clean">clean</th>
     <th data-col="hide">hide</th>
     <th data-col="badge">pkpCheckUrls</th>
-  </tr>`;
+  </table>`;
 
   setupColumnToggles();
   if (!hasExternal) {
@@ -364,6 +372,11 @@ async function buildTable(groups, prodBase, testBase, alias, hasExternal, extern
     });
 
     for (let ep of group.endpoints) {
+      // Filter by active modes: include endpoint if it has at least one mode active
+      const endpointModes = ep.modes || [];
+      const hasActiveMode = endpointModes.some(mode => activeModes[mode] === true);
+      if (!hasActiveMode) continue; // skip this endpoint
+
       const pathTemplate = ep.pathTemplate;
       const isHttpTest = (pathTemplate === "http://");
       // Build PROD url
@@ -423,7 +436,7 @@ async function buildTable(groups, prodBase, testBase, alias, hasExternal, extern
         tr._externalStatus = external.status;
         tr._hasError = prod.isError || test.isError || (hasExternal && external.isError);
         totalTests++;
-        document.getElementById("progressMsg").innerText = `Tested ${totalTests} / ${groups.flatMap(g => g.endpoints).length} endpoints`;
+        document.getElementById("progressMsg").innerText = `Tested ${totalTests} / ... endpoints`;
         updateCategorySummary(catRow, groupRows);
       });
       allPromises.push(promise);
@@ -441,7 +454,14 @@ async function buildTable(groups, prodBase, testBase, alias, hasExternal, extern
 // -------------------------------
 // Main flow
 // -------------------------------
+function updateActiveFilters() {
+  activeModes.basic = document.getElementById("filterBasic").checked;
+  activeModes.cleanUrls = document.getElementById("filterCleanUrls").checked;
+  activeModes.hideContext = document.getElementById("filterHideContext").checked;
+}
+
 async function runAllTests() {
+  updateActiveFilters();
   const alias = document.getElementById("journalSelect").value;
   const journal = journals.find(j => j.alias === alias);
   if (!journal) return;
@@ -491,20 +511,21 @@ async function runAllTests() {
   };
 
   document.getElementById("progressMsg").innerText = "Running tests...";
-  const resolvedGroups = endpointGroups; // no transformation needed
-  await buildTable(resolvedGroups, prodBase, testBase, alias, hasExternal, externalFullBase);
+  await buildTable(endpointGroups, prodBase, testBase, alias, hasExternal, externalFullBase);
 }
 
 function resetExternalToDemo() {
   document.getElementById("externalBaseUrl").value = "ojs33.testdrive.publicknowledgeproject.org";
   document.getElementById("externalContext").value = "testdrive-journal";
   document.getElementById("externalError").innerHTML = "";
-  // No auto-run
 }
 
 function populateSelectAndStart() {
   const select = document.getElementById("journalSelect");
-  select.addEventListener("change", () => { updateProdTestUrls(); runAllTests(); });
+  select.addEventListener("change", () => {
+    updateProdTestUrls();
+    // No auto-run
+  });
   document.getElementById("runTestsBtn").addEventListener("click", () => runAllTests());
   document.getElementById("resetExternalBtn").addEventListener("click", () => resetExternalToDemo());
   const errorBtn = document.getElementById("errorToggleBtn");

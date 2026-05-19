@@ -408,3 +408,44 @@ footer {
   0% { opacity: 0.4; }
   100% { opacity: 1; }
 }
+
+/* Mode filters row */
+.mode-filters {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 1.5rem;
+  padding: 0.5rem 0;
+  border-top: 1px solid #e2edf5;
+  border-bottom: 1px solid #e2edf5;
+  margin: 0.5rem 0;
+}
+.filter-label {
+  font-weight: 600;
+  font-size: 0.9rem;
+}
+.mode-checkbox {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  cursor: pointer;
+  font-size: 0.85rem;
+}
+.mode-checkbox input {
+  margin: 0;
+  width: 16px;
+  height: 16px;
+}
+.mode-badge {
+  font-weight: 600;
+  padding: 2px 6px;
+  border-radius: 12px;
+  background: #eef2f7;
+}
+.mode-badge.basic { background: #d4edda; color: #155724; }
+.mode-badge.clean { background: #d1ecf1; color: #0c5460; }
+.mode-badge.hide { background: #fff3cd; color: #856404; }
+.mode-desc {
+  color: #5b7f95;
+  font-size: 0.75rem;
+}
