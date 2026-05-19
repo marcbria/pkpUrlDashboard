@@ -2,7 +2,7 @@
 // main.js - Entry point and event handlers
 // ============================================================
 
-import { journals, loadJournalsFromCSV, loadEndpointsFromJSON, updateProdTestUrls } from './dataLoader.js';
+import { journals, loadJournalsFromCSV, loadEndpointsFromJSON, updateProdTestUrls, endpointGroups } from './dataLoader.js';
 import { getTestBase, normalizeExternalBase, getFullExternalBase, registerExternalDomain } from './helpers.js';
 import { setExternalState, setCurrentErrorOnly, updateActiveFilters, buildTable, applyErrorFilter } from './tableRenderer.js';
 
@@ -10,7 +10,6 @@ let externalBaseUrl = "";
 let externalContext = "";
 
 async function runAllTests() {
-  // Show UI elements
   document.getElementById("toolbar").style.display = "flex";
   document.getElementById("tableWrapper").style.display = "block";
   document.getElementById("summaryPanel").style.display = "flex";
@@ -53,7 +52,6 @@ async function runAllTests() {
 
   setExternalState(externalBaseUrl, externalContext);
 
-  // Save state to URL
   const urlParams = new URLSearchParams();
   urlParams.set('journal', alias);
   if (hasExternal) {
@@ -67,8 +65,6 @@ async function runAllTests() {
   };
 
   document.getElementById("progressMsg").innerText = "Running tests...";
-  // Get endpoint groups from global variable (imported from dataLoader)
-  const { endpointGroups } = await import('./dataLoader.js');
   await buildTable(endpointGroups, prodBase, testBase, alias, hasExternal, externalFullBase);
 }
 
@@ -88,7 +84,7 @@ function populateSelectAndStart() {
   document.getElementById("resetExternalBtn").addEventListener("click", () => resetExternalToDemo());
   const errorBtn = document.getElementById("errorToggleBtn");
   errorBtn.addEventListener("click", () => {
-    const newValue = !(document.getElementById("errorToggleBtn").classList.contains("active"));
+    const newValue = !errorBtn.classList.contains("active");
     setCurrentErrorOnly(newValue);
     errorBtn.classList.toggle("active");
     errorBtn.innerHTML = newValue ? "✔️ Show all rows" : "❗ Show errors only";
