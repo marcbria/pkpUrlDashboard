@@ -2,7 +2,6 @@
 // tableRenderer.js - Table rendering and UI logic
 // ============================================================
 
-import { journals, endpointGroups } from './dataLoader.js';
 import { replaceAlias, testAndRenderCell } from './helpers.js';
 
 let externalBaseUrl = "";
@@ -203,8 +202,23 @@ export function computeAndDisplaySummary(hasExternal) {
 }
 
 export async function buildTable(groups, prodBase, testBase, alias, hasExternal, externalFullBase) {
-  const tbody = document.querySelector("#urlTable tbody");
+  // Get table body element with robust fallback
+  const table = document.getElementById("urlTable");
+  if (!table) {
+    console.error("Table element #urlTable not found");
+    return;
+  }
+  const tbody = table.querySelector("tbody");
+  if (!tbody) {
+    console.error("Table body not found inside #urlTable");
+    return;
+  }
   const thead = document.getElementById("tableHeader");
+  if (!thead) {
+    console.error("Table header #tableHeader not found");
+    return;
+  }
+
   tbody.innerHTML = "";
 
   thead.innerHTML = `<tr>
@@ -216,7 +230,7 @@ export async function buildTable(groups, prodBase, testBase, alias, hasExternal,
     <th data-col="clean">clean</th>
     <th data-col="hide">hide</th>
     <th data-col="badge">pkpCheckUrls</th>
-  </table>`;
+  </tr>`;
 
   setupColumnToggles();
   if (!hasExternal) {
