@@ -4,8 +4,12 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>📡 ReDi Service: PKP URL Health Monitor</title>
-  <link rel="stylesheet" href="dashboard.css">
-  <script src="dashboard.js" defer></script>
+  <link rel="stylesheet" href="css/dashboard.css">
+  <script src="js/constants.js" defer></script>
+  <script src="js/helpers.js" defer></script>
+  <script src="js/dataLoader.js" defer></script>
+  <script src="js/tableRenderer.js" defer></script>
+  <script src="js/main.js" defer></script>
 </head>
 <body>
 <div class="container">
@@ -66,7 +70,7 @@
   </div>
 
   <footer>Tests via <code>proxy.php</code> (same directory). Click column header to compact/expand.<br>
-  Journals from <code>journals.csv</code>. Format: <code>alias,prod_url,test_url</code>.<br>
+  Journals from <code>configs/journals.csv</code>. Format: <code>alias,prod_url,test_url</code>.<br>
   External domain is optional; if filled, must be without http:// and include a context.<br>
   🐙 <a href="https://github.com/marcbria/pkpUrlDashboard" target="_blank">Documentation & source code on GitHub</a></footer>
 </div>
