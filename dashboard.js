@@ -70,7 +70,6 @@ function getExternalUrl(path, pathTemplate, alias) {
     finalPath = pathTemplate.replace(/{alias}/g, externalContext);
   } else if (path.startsWith("/index.php/") && !path.includes("/index.php/")) {
     // Para rutas basic que empiezan con /index.php/{alias} hay que sustituir el alias por context
-    // Detectamos patrón /index.php/xxxx/... y reemplazamos la primera parte después de /index.php/
     const match = path.match(/^\/index\.php\/[^/]+(\/.*)$/);
     if (match) {
       finalPath = `/index.php/${externalContext}${match[1]}`;
@@ -268,6 +267,7 @@ function setupColumnToggles() {
         newTh.classList.add("col-compact");
       }
     });
+    // Solo compactar automáticamente las columnas de modo y badge, no external
     const shouldBeCompact = (colName === "basic" || colName === "clean" || colName === "hide" || colName === "badge");
     if (shouldBeCompact) {
       newTh.innerText = shortText;
@@ -293,7 +293,7 @@ function updateCategorySummary(catRow, rows) {
     if (externalBaseUrl && externalContext) {
       tds[3].innerHTML = `<span class="category-summary">✅ ${externalOk}/${externalTotal}</span>`;
     } else {
-      tds[3].innerHTML = `<span class="category-summary">(disabled)</span>`;
+      tds[3].innerHTML = `<span class="category-summary">-</span>`;
     }
   }
 }
@@ -466,7 +466,7 @@ async function buildTable(groups, prodBase, testBase, alias, hasExternal) {
       if (hasExternal) {
         tdExternal.innerHTML = '<span class="status-loading">⏳</span>';
       } else {
-        tdExternal.innerHTML = '<span class="status-bg bg-error">⛔ disabled</span>';
+        tdExternal.innerHTML = '<span class="status-bg bg-error">-</span>';
         tdExternal.style.display = "none";
       }
       tr.appendChild(tdExternal);
@@ -609,7 +609,7 @@ function resetExternalToDemo() {
   document.getElementById("externalBaseUrl").value = "ojs33.testdrive.publicknowledgeproject.org";
   document.getElementById("externalContext").value = "testdrive-journal";
   document.getElementById("externalError").innerHTML = "";
-  runAllTests();
+  // No ejecutar pruebas automáticamente
 }
 
 function populateSelectAndStart() {
