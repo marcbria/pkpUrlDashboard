@@ -18,7 +18,7 @@ This project provides a **dashboard** that tests a comprehensive set of OJS endp
 
 - **Production** – real domain with its actual redirection rules.
 - **Test** – shadow domain (`cory‑*.precarietat.net`) that mimics the same path structure.
-- **PKP Demo** – official OJS 3.3 demo, used as a reference.
+- **PKP Demo** – official OJS 3.3 demo, used as a reference (optional).
 
 The tests cover three URL modes:
 
@@ -36,9 +36,26 @@ The dashboard helps you quickly see **which endpoints work, which redirect, and 
 4. Results are summarised per endpoint mode, and you can **hide/show columns** (PROD, TEST, DEMO), **collapse/expand categories**, and **filter to show only errors**.
 5. All data stays in your browser – no external database.
 
-## Installation
+## Installation & Usage
 
-### Requirements
+### 🐳 Using Docker (recommended)
+
+1. **Clone or download** this repository.
+2. **Build the Docker image**:
+
+        docker build -t pkp-health-monitor .
+
+3. **Run the container**:
+
+        docker run -d -p 8080:80 --name health-monitor pkp-health-monitor
+
+4. **Open your browser** at `http://localhost:8080/dashboard.html`
+
+The container runs an Apache server with PHP and serves the dashboard on port 8080 (you can change the host port if needed).
+
+### 📦 Manual installation (without Docker)
+
+#### Requirements
 
 - A web server with **PHP** (7.4 or later) and **cURL** enabled.
 - The server must be able to reach:
@@ -46,39 +63,33 @@ The dashboard helps you quickly see **which endpoints work, which redirect, and 
   - Your test domains (e.g. `cory‑*.precarietat.net`)
   - `ojs33.testdrive.publicknowledgeproject.org` (PKP demo)
 
-### Steps
+#### Steps
 
-1. **Place the files** in a directory accessible via HTTP, e.g.:
-
-```
-/var/www/html/health-monitor/
-├── dashboard.html
-├── proxy.php
-└── journals.csv (optional, not directly used by dashboard – for reference)
-```
-
-
-2. **Configure the allowed domains** in `proxy.php`:
-- Edit the `$allowedDomains` array and add **all domains** your dashboard will call (production, test, and any other reference). The provided list includes the complete set used by the ReDi service journals.
-
+1. **Place the files** in a directory accessible via HTTP.
+2. **Configure the allowed domains** in `proxy.php` – edit the `$allowedDomains` array and add **all domains** your dashboard will call.
 3. **(Optional) Serve the dashboard via HTTPS** – the proxy works with both HTTP and HTTPS, but to avoid mixed‑content warnings, use HTTPS for the dashboard itself.
-
 4. **Open `dashboard.html`** in your browser.
 
 ## Usage
 
 1. Select a journal from the dropdown.
-2. The table will automatically start testing all endpoints for **PROD**, **TEST**, and **PKP Demo**.
+2. The table will automatically start testing all endpoints for **PROD**, **TEST**, and (optionally) **PKP Demo**.
 3. Use the checkboxes to show/hide columns.
 4. Click **“Show errors”** to hide all rows that are fully successful (no error in any column).
 5. Click on any **category header** (e.g., “🏠 Home & index”) to collapse/expand that block.
 6. The **summary panel** at the top shows aggregated results per URL mode and compares the three environments.
 
+### External base (optional)
+
+- You can test against any external OJS installation by providing a **base URL (without `http://`)** and a **context name**.
+- Click the 🛟 button to load the PKP demo (`ojs33.testdrive.publicknowledgeproject.org` with context `testdrive-journal`) as a reference.
+- If you leave the external base empty, only PROD and TEST columns are shown.
+
 ## Customisation
 
 - To add or edit journals, modify the `journals` array inside `dashboard.html` (or the `journals.csv` for reference). The mapping logic for test URLs is:
-- If `prodUrl` contains `revistes.uab.cat/alias` → test URL = `https://cory-revistes.precarietat.net/alias`
-- Otherwise (domain journal) → test URL = `https://cory-{alias}.precarietat.net`
+  - If `prodUrl` contains `revistes.uab.cat/alias` → test URL = `https://cory-revistes.precarietat.net/alias`
+  - Otherwise (domain journal) → test URL = `https://cory-{alias}.precarietat.net`
 - To change the demo reference, edit `DEMO_BASE` and `DEMO_BASE_HTTP` in `dashboard.html` and the allowed domains in `proxy.php`.
 - To adjust the list of tested endpoints, edit the `defaultGroups` array in `dashboard.html`.
 
