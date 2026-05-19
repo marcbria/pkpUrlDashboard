@@ -1,32 +1,37 @@
 // ============================================================
 // dashboard.js - PKP URL Health Monitor
-// Version: modular, constants, external config
+// Version: external opcional, orden de modos, corrección OAI
 // ============================================================
 
 // -------------------------------
 // Constants & Configuration
 // -------------------------------
 const PROXY_PATH = "proxy.php";
-const EXTERNAL_DELAY_US = 2000000;      // 2 seconds for external calls
+const EXTERNAL_DELAY_US = 0;      // sin delay
 const CSV_FILE = "journals.csv";
 const ENDPOINTS_FILE = "endpoints.json";
 
 // Global state
 let journals = [];
-let externalBaseUrl = "https://ojs33.testdrive.publicknowledgeproject.org";
-let externalContext = "testdrive-journal";
+let externalBaseUrl = "";          // almacenamos sin protocolo
+let externalContext = "";
 let currentErrorOnly = false;
 
 // -------------------------------
 // Helper Functions
 // -------------------------------
-function normalizeExternalBase(url) {
-  if (!url) return "";
-  url = url.trim();
-  if (!url.startsWith('http://') && !url.startsWith('https://')) {
-    url = 'https://' + url;
+function normalizeExternalBase(raw) {
+  if (!raw) return "";
+  let s = raw.trim();
+  if (s.startsWith('http://') || s.startsWith('https://')) {
+    return null; // error: no protocolo
   }
-  return url;
+  return s;
+}
+
+function getFullExternalBase() {
+  if (!externalBaseUrl) return "";
+  return "https://" + externalBaseUrl;
 }
 
 function getTestBase(alias, prodUrl, optionalTestUrl) {
@@ -50,22 +55,33 @@ async function registerExternalDomain(domain) {
   } catch(e) { /* ignore */ }
 }
 
-// Build external URL using externalContext (not journal alias)
-function getExternalUrl(path) {
-  if (!externalBaseUrl) return "";
-  let base = externalBaseUrl.replace(/\/$/, '');
-  if (path === "http://") return base.replace(/^https:/, 'http:');
-  if (path === "") return base;
-  if (path.startsWith("/")) {
-    if (path.includes("/index.php/")) {
-      return base + path;
+// Construye URL para external usando externalContext, no el alias
+function getExternalUrl(path, pathTemplate, alias) {
+  if (!externalBaseUrl || !externalContext) return null;
+  let fullBase = getFullExternalBase();
+  if (!fullBase) return null;
+  fullBase = fullBase.replace(/\/$/, '');
+  if (path === "http://") return fullBase.replace(/^https:/, 'http:');
+  if (path === "") return fullBase;
+
+  let finalPath = path;
+  // Si el endpoint usa pathTemplate, reemplazar {alias} por externalContext
+  if (pathTemplate && pathTemplate.includes('{alias}')) {
+    finalPath = pathTemplate.replace(/{alias}/g, externalContext);
+  } else if (path.startsWith("/index.php/") && !path.includes("/index.php/")) {
+    // Para rutas basic que empiezan con /index.php/{alias} hay que sustituir el alias por context
+    // Detectamos patrón /index.php/xxxx/... y reemplazamos la primera parte después de /index.php/
+    const match = path.match(/^\/index\.php\/[^/]+(\/.*)$/);
+    if (match) {
+      finalPath = `/index.php/${externalContext}${match[1]}`;
     }
-    return `${base}/index.php/${externalContext}${path}`;
   }
-  return base + path;
+  if (finalPath.startsWith("/")) {
+    return fullBase + finalPath;
+  }
+  return fullBase + "/" + finalPath;
 }
 
-// *** CORRECCIÓN: Eliminado AbortController y timeout ***
 async function checkUrlViaProxy(url, useDelay = false) {
   let proxyUrl = `${PROXY_PATH}?url=${encodeURIComponent(url)}`;
   if (useDelay) {
@@ -135,7 +151,7 @@ async function loadJournalsFromCSV() {
     });
     select.disabled = false;
 
-    // Read URL parameters
+    // URL parameters
     const urlParams = new URLSearchParams(window.location.search);
     let initialJournal = urlParams.get('journal');
     let initialExternalBase = urlParams.get('external_base_url');
@@ -149,14 +165,16 @@ async function loadJournalsFromCSV() {
     if (initialExternalBase) {
       document.getElementById('externalBaseUrl').value = initialExternalBase;
     } else {
-      document.getElementById('externalBaseUrl').value = "https://ojs33.testdrive.publicknowledgeproject.org";
+      document.getElementById('externalBaseUrl').value = "";
     }
     if (initialExternalContext) {
       document.getElementById('externalContext').value = initialExternalContext;
     } else {
-      document.getElementById('externalContext').value = "testdrive-journal";
+      document.getElementById('externalContext').value = "";
     }
 
+    // Mostrar PROD/TEST urls
+    updateProdTestUrls();
     setTimeout(() => runAllTests(), 100);
   } catch (err) {
     console.error('Failed to load journals.csv', err);
@@ -165,15 +183,35 @@ async function loadJournalsFromCSV() {
   }
 }
 
+function updateProdTestUrls() {
+  const alias = document.getElementById("journalSelect").value;
+  const journal = journals.find(j => j.alias === alias);
+  if (!journal) return;
+  const prodBase = journal.prodUrl;
+  const testBase = getTestBase(alias, prodBase, journal.testUrl);
+  const prodLink = `<a href="${prodBase}" target="_blank">PROD: ${prodBase.replace(/^https?:\/\//, '')}</a>`;
+  const testLink = `<a href="${testBase}" target="_blank">TEST: ${testBase.replace(/^https?:\/\//, '')}</a>`;
+  document.getElementById("prodTestUrls").innerHTML = `${prodLink} | ${testLink}`;
+}
+
 let endpointGroups = [];
 async function loadEndpointsFromJSON() {
   try {
     const response = await fetch(ENDPOINTS_FILE);
     const data = await response.json();
-    endpointGroups = data.groups;
+    // Ordenar endpoints dentro de cada grupo según modo: basic, cleanUrls, hideContext
+    endpointGroups = data.groups.map(group => {
+      const order = { "basic": 1, "cleanUrls": 2, "hideContext": 3 };
+      const sortedEndpoints = [...group.endpoints].sort((a, b) => {
+        const aOrder = Math.min(...(a.modes || []).map(m => order[m] || 999));
+        const bOrder = Math.min(...(b.modes || []).map(m => order[m] || 999));
+        return aOrder - bOrder;
+      });
+      return { ...group, endpoints: sortedEndpoints };
+    });
   } catch (err) {
     console.error('Failed to load endpoints.json', err);
-    endpointGroups = []; // fallback (empty)
+    endpointGroups = [];
   }
 }
 
@@ -182,9 +220,9 @@ function resolveEndpoints(groups, alias) {
     ...group,
     endpoints: group.endpoints.map(ep => {
       if (ep.pathTemplate) {
-        return { ...ep, path: ep.pathTemplate.replace(/{alias}/g, alias), modes: ep.modes };
+        return { ...ep, path: ep.pathTemplate.replace(/{alias}/g, alias), pathTemplate: ep.pathTemplate, modes: ep.modes };
       }
-      return { ...ep, path: ep.path };
+      return { ...ep, path: ep.path, pathTemplate: null };
     })
   }));
 }
@@ -252,7 +290,11 @@ function updateCategorySummary(catRow, rows) {
   if (tds.length >= 4) {
     tds[1].innerHTML = `<span class="category-summary">✅ ${prodOk}/${prodTotal}</span>`;
     tds[2].innerHTML = `<span class="category-summary">✅ ${testOk}/${testTotal}</span>`;
-    tds[3].innerHTML = `<span class="category-summary">✅ ${externalOk}/${externalTotal}</span>`;
+    if (externalBaseUrl && externalContext) {
+      tds[3].innerHTML = `<span class="category-summary">✅ ${externalOk}/${externalTotal}</span>`;
+    } else {
+      tds[3].innerHTML = `<span class="category-summary">(disabled)</span>`;
+    }
   }
 }
 
@@ -280,6 +322,7 @@ function computeAndDisplaySummary() {
     cleanUrls: { prodOk: 0, testOk: 0, externalOk: 0, total: 0 },
     hideContext: { prodOk: 0, testOk: 0, externalOk: 0, total: 0 }
   };
+  const hasExternal = !!(externalBaseUrl && externalContext);
   rows.forEach(row => {
     const modes = row._modes || [];
     const prodStatus = row._prodStatus;
@@ -287,73 +330,55 @@ function computeAndDisplaySummary() {
     const externalStatus = row._externalStatus;
     const isOk = (s) => s >= 200 && s < 300;
     modes.forEach(mode => {
-      if (mode === "basic") {
-        modeStats.basic.total++;
-        if (isOk(prodStatus)) modeStats.basic.prodOk++;
-        if (isOk(testStatus)) modeStats.basic.testOk++;
-        if (isOk(externalStatus)) modeStats.basic.externalOk++;
-      } else if (mode === "cleanUrls") {
-        modeStats.cleanUrls.total++;
-        if (isOk(prodStatus)) modeStats.cleanUrls.prodOk++;
-        if (isOk(testStatus)) modeStats.cleanUrls.testOk++;
-        if (isOk(externalStatus)) modeStats.cleanUrls.externalOk++;
-      } else if (mode === "hideContext") {
-        modeStats.hideContext.total++;
-        if (isOk(prodStatus)) modeStats.hideContext.prodOk++;
-        if (isOk(testStatus)) modeStats.hideContext.testOk++;
-        if (isOk(externalStatus)) modeStats.hideContext.externalOk++;
+      const stat = modeStats[mode];
+      if (stat) {
+        stat.total++;
+        if (isOk(prodStatus)) stat.prodOk++;
+        if (isOk(testStatus)) stat.testOk++;
+        if (hasExternal && isOk(externalStatus)) stat.externalOk++;
       }
     });
   });
 
   function cmp(prodOk, testOk, externalOk) {
+    if (!hasExternal) {
+      if (testOk >= prodOk) {
+        if (testOk === prodOk) return "✅ TEST = PRODUCTION";
+        return "🏆 TEST better than PRODUCTION";
+      } else {
+        return "⚠️ TEST worse than PRODUCTION";
+      }
+    }
     let mainText = "", subText = "";
     if (testOk >= prodOk && testOk >= externalOk) {
-      if (testOk === prodOk && testOk === externalOk) {
-        mainText = "✅ TEST equal to others";
-      } else if (testOk > prodOk && testOk > externalOk) {
-        mainText = "🏆 TEST best";
-      } else if (testOk === prodOk && testOk > externalOk) {
-        mainText = "✅ TEST & PRODUCTION equal";
-        subText = "(better than EXTERNAL)";
-      } else if (testOk === externalOk && testOk > prodOk) {
-        mainText = "✅ TEST & EXTERNAL equal";
-        subText = "(better than PRODUCTION)";
-      } else {
-        mainText = "✅ TEST good";
-      }
-    } else if (testOk < prodOk && testOk < externalOk) {
-      mainText = "❌ TEST worse than both";
-    } else {
-      mainText = "⚠️ TEST improvable";
-    }
-    let colorClass = "";
-    if (mainText.includes("✅") || mainText.includes("🏆")) colorClass = "green";
-    else if (mainText.includes("❌")) colorClass = "red";
-    else if (mainText.includes("⚠️")) colorClass = "orange";
-    return `<div class="comparison ${colorClass}">
-              <span class="main-line">${mainText}</span>
-              ${subText ? `<span class="sub-line">${subText}</span>` : ''}
-            </div>`;
+      if (testOk === prodOk && testOk === externalOk) mainText = "✅ TEST equal to others";
+      else if (testOk > prodOk && testOk > externalOk) mainText = "🏆 TEST best";
+      else if (testOk === prodOk && testOk > externalOk) mainText = "✅ TEST & PRODUCTION equal (better than EXTERNAL)";
+      else if (testOk === externalOk && testOk > prodOk) mainText = "✅ TEST & EXTERNAL equal (better than PRODUCTION)";
+      else mainText = "✅ TEST good";
+    } else if (testOk < prodOk && testOk < externalOk) mainText = "❌ TEST worse than both";
+    else mainText = "⚠️ TEST improvable";
+    let colorClass = mainText.includes("✅") || mainText.includes("🏆") ? "green" : (mainText.includes("❌") ? "red" : "orange");
+    return `<div class="comparison ${colorClass}"><span class="main-line">${mainText}</span>${subText ? `<span class="sub-line">${subText}</span>` : ''}</div>`;
   }
 
   const summaryHtml = `
     <div class="summary-block">
       <h4>📘 basic mode</h4>
       <div class="stat-number">${modeStats.basic.total} endpoints</div>
-      <div class="stat-detail">PRODUCTION OK: ${modeStats.basic.prodOk} | TEST OK: ${modeStats.basic.testOk} | EXTERNAL OK: ${modeStats.basic.externalOk}</div>
+      <div class="stat-detail">PRODUCTION OK: ${modeStats.basic.prodOk} | TEST OK: ${modeStats.basic.testOk}${hasExternal ? ` | EXTERNAL OK: ${modeStats.basic.externalOk}` : ''}</div>
       ${cmp(modeStats.basic.prodOk, modeStats.basic.testOk, modeStats.basic.externalOk)}
     </div>
     <div class="summary-block">
       <h4>🌐 cleanUrls mode</h4>
       <div class="stat-number">${modeStats.cleanUrls.total} endpoints</div>
-      <div class="stat-detail">PRODUCTION OK: ${modeStats.cleanUrls.prodOk} | TEST OK: ${modeStats.cleanUrls.testOk} | EXTERNAL OK: ${modeStats.cleanUrls.externalOk}</div>
+      <div class="stat-detail">PRODUCTION OK: ${modeStats.cleanUrls.prodOk} | TEST OK: ${modeStats.cleanUrls.testOk}${hasExternal ? ` | EXTERNAL OK: ${modeStats.cleanUrls.externalOk}` : ''}</div>
       ${cmp(modeStats.cleanUrls.prodOk, modeStats.cleanUrls.testOk, modeStats.cleanUrls.externalOk)}
     </div>
     <div class="summary-block">
       <h4>🚀 hideContext mode</h4>
       <div class="stat-number">${modeStats.hideContext.total} endpoints</div>
-      <div class="stat-detail">PRODUCTION OK: ${modeStats.hideContext.prodOk} | TEST OK: ${modeStats.hideContext.testOk} | EXTERNAL OK: ${modeStats.hideContext.externalOk}</div>
+      <div class="stat-detail">PRODUCTION OK: ${modeStats.hideContext.prodOk} | TEST OK: ${modeStats.hideContext.testOk}${hasExternal ? ` | EXTERNAL OK: ${modeStats.hideContext.externalOk}` : ''}</div>
       ${cmp(modeStats.hideContext.prodOk, modeStats.hideContext.testOk, modeStats.hideContext.externalOk)}
     </div>
     <div class="summary-block">
@@ -361,13 +386,13 @@ function computeAndDisplaySummary() {
       <div class="stat-number">${modeStats.basic.total + modeStats.cleanUrls.total + modeStats.hideContext.total} routes</div>
       <div class="stat-detail">✅ PRODUCTION OK: ${modeStats.basic.prodOk + modeStats.cleanUrls.prodOk + modeStats.hideContext.prodOk}</div>
       <div class="stat-detail">✅ TEST OK: ${modeStats.basic.testOk + modeStats.cleanUrls.testOk + modeStats.hideContext.testOk}</div>
-      <div class="stat-detail">✅ EXTERNAL OK: ${modeStats.basic.externalOk + modeStats.cleanUrls.externalOk + modeStats.hideContext.externalOk}</div>
+      ${hasExternal ? `<div class="stat-detail">✅ EXTERNAL OK: ${modeStats.basic.externalOk + modeStats.cleanUrls.externalOk + modeStats.hideContext.externalOk}</div>` : ''}
     </div>
   `;
   document.getElementById("summaryPanel").innerHTML = summaryHtml;
 }
 
-async function buildTable(groups, prodBase, testBase, alias) {
+async function buildTable(groups, prodBase, testBase, alias, hasExternal) {
   const tbody = document.querySelector("#urlTable tbody");
   const thead = document.getElementById("tableHeader");
   tbody.innerHTML = "";
@@ -376,14 +401,18 @@ async function buildTable(groups, prodBase, testBase, alias) {
     <th data-col="first">Section / Endpoint</th>
     <th data-col="prod">PRODUCTION</th>
     <th data-col="test">TEST</th>
-    <th data-col="external">EXTERNAL</th>
+    ${hasExternal ? '<th data-col="external">EXTERNAL</th>' : '<th data-col="external" style="display:none;">EXTERNAL</th>'}
     <th data-col="basic" style="text-align:center;">basic</th>
     <th data-col="clean" style="text-align:center;">clean</th>
     <th data-col="hide" style="text-align:center;">hide</th>
     <th data-col="badge">pkpCheckUrls</th>
-  </table>`;
+  </tr>`;
 
   setupColumnToggles();
+  if (!hasExternal) {
+    const externalTh = document.querySelector("th[data-col='external']");
+    if (externalTh) externalTh.style.display = "none";
+  }
 
   let totalTests = 0;
   const allPromises = [];
@@ -391,7 +420,8 @@ async function buildTable(groups, prodBase, testBase, alias) {
   for (let group of groups) {
     const catRow = document.createElement("tr");
     catRow.className = "category";
-    for (let i = 0; i < 8; i++) {
+    const colCount = hasExternal ? 8 : 7;
+    for (let i = 0; i < colCount; i++) {
       const td = document.createElement("td");
       if (i === 0) {
         td.innerHTML = `<span class="collapse-indicator">›</span> <strong>${group.name}</strong>`;
@@ -414,7 +444,7 @@ async function buildTable(groups, prodBase, testBase, alias) {
       const isHttpTest = (ep.path === "http://");
       let prodUrl = isHttpTest ? prodBase.replace(/^https:/, 'http:') : prodBase + ep.path;
       let testUrl = isHttpTest ? testBase.replace(/^https:/, 'http:') : testBase + ep.path;
-      let externalUrl = getExternalUrl(ep.path);
+      let externalUrl = hasExternal ? getExternalUrl(ep.path, ep.pathTemplate, alias) : null;
 
       const tr = document.createElement("tr");
       const tdDesc = document.createElement("td");
@@ -433,7 +463,12 @@ async function buildTable(groups, prodBase, testBase, alias) {
 
       const tdExternal = document.createElement("td");
       tdExternal.className = `url-cell col-external`;
-      tdExternal.innerHTML = '<span class="status-loading">⏳</span>';
+      if (hasExternal) {
+        tdExternal.innerHTML = '<span class="status-loading">⏳</span>';
+      } else {
+        tdExternal.innerHTML = '<span class="status-bg bg-error">⛔ disabled</span>';
+        tdExternal.style.display = "none";
+      }
       tr.appendChild(tdExternal);
 
       const tdBasic = document.createElement("td");
@@ -464,15 +499,20 @@ async function buildTable(groups, prodBase, testBase, alias) {
       tr._modes = ep.modes;
 
       const isRootUrl = (ep.path === "" || ep.path === "http://");
-      const promise = Promise.all([
+      const promises = [
         testAndRenderCell(tdProd, prodUrl, isRootUrl, false),
-        testAndRenderCell(tdTest, testUrl, isRootUrl, false),
-        testAndRenderCell(tdExternal, externalUrl, isRootUrl, true)
-      ]).then(([prod, test, external]) => {
+        testAndRenderCell(tdTest, testUrl, isRootUrl, false)
+      ];
+      if (hasExternal && externalUrl) {
+        promises.push(testAndRenderCell(tdExternal, externalUrl, isRootUrl, true));
+      } else {
+        promises.push(Promise.resolve({ status: 0, isError: false }));
+      }
+      const promise = Promise.all(promises).then(([prod, test, external]) => {
         tr._prodStatus = prod.status;
         tr._testStatus = test.status;
         tr._externalStatus = external.status;
-        tr._hasError = prod.isError || test.isError || external.isError;
+        tr._hasError = prod.isError || test.isError || (hasExternal && external.isError);
         totalTests++;
         document.getElementById("progressMsg").innerText = `Tested ${totalTests} / ${groups.flatMap(g => g.endpoints).length} endpoints`;
         updateCategorySummary(catRow, groupRows);
@@ -498,25 +538,60 @@ async function runAllTests() {
   if (!journal) return;
   const prodBase = journal.prodUrl;
   const testBase = getTestBase(alias, prodBase, journal.testUrl);
-  let rawExternalBase = document.getElementById("externalBaseUrl").value.trim();
-  externalBaseUrl = normalizeExternalBase(rawExternalBase);
-  externalContext = document.getElementById("externalContext").value.trim();
-  let externalDomain = "";
-  try {
-    const urlObj = new URL(externalBaseUrl);
-    externalDomain = urlObj.hostname;
-    await registerExternalDomain(externalDomain);
-  } catch(e) {}
+  const rawExternalBase = document.getElementById("externalBaseUrl").value.trim();
+  const context = document.getElementById("externalContext").value.trim();
+  const errorDiv = document.getElementById("externalError");
+  errorDiv.innerHTML = "";
+  let hasExternal = false;
+
+  if (rawExternalBase !== "") {
+    const normalized = normalizeExternalBase(rawExternalBase);
+    if (normalized === null) {
+      errorDiv.innerHTML = "❌ Error: External base debe ser sin protocolo (ej. dominio.com)";
+      hasExternal = false;
+      externalBaseUrl = "";
+      externalContext = "";
+    } else if (context === "") {
+      errorDiv.innerHTML = "❌ Error: Si añades una base externa, debes proporcionar un context.";
+      hasExternal = false;
+      externalBaseUrl = "";
+      externalContext = "";
+    } else {
+      externalBaseUrl = normalized;
+      externalContext = context;
+      hasExternal = true;
+      const fullUrl = "https://" + externalBaseUrl;
+      let domain = "";
+      try {
+        const urlObj = new URL(fullUrl);
+        domain = urlObj.hostname;
+        await registerExternalDomain(domain);
+      } catch(e) { errorDiv.innerHTML = "❌ Error en dominio externo"; hasExternal = false; }
+    }
+  } else {
+    externalBaseUrl = "";
+    externalContext = "";
+    hasExternal = false;
+  }
+
+  // Mostrar en baseInfo
   const baseDiv = document.getElementById("baseInfo");
   const prodLink = `<a href="${prodBase}" target="_blank">${prodBase.replace(/^https?:\/\//, '')}</a>`;
   const testLink = `<a href="${testBase}" target="_blank">${testBase.replace(/^https?:\/\//, '')}</a>`;
-  const externalLink = `<a href="${externalBaseUrl}" target="_blank">${externalBaseUrl.replace(/^https?:\/\//, '')}</a>`;
-  baseDiv.innerHTML = `PRODUCTION: ${prodLink} | TEST: ${testLink} | EXTERNAL: ${externalLink} (context: ${externalContext})`;
+  let externalHtml = "";
+  if (hasExternal) {
+    const externalFull = "https://" + externalBaseUrl;
+    externalHtml = ` | EXTERNAL: <a href="${externalFull}" target="_blank">${externalBaseUrl}</a> (context: ${externalContext})`;
+  }
+  baseDiv.innerHTML = `PRODUCTION: ${prodLink} | TEST: ${testLink}${externalHtml}`;
 
+  // Guardar estado en URL
   const urlParams = new URLSearchParams();
   urlParams.set('journal', alias);
-  urlParams.set('external_base_url', rawExternalBase);
-  urlParams.set('external_context', externalContext);
+  if (hasExternal) {
+    urlParams.set('external_base_url', externalBaseUrl);
+    urlParams.set('external_context', externalContext);
+  }
   const currentUrl = `${window.location.pathname}?${urlParams.toString()}`;
   const copyBtn = document.getElementById("copyUrlBtn");
   copyBtn.onclick = () => {
@@ -527,18 +602,22 @@ async function runAllTests() {
 
   document.getElementById("progressMsg").innerText = "Running tests...";
   const resolvedGroups = resolveEndpoints(endpointGroups, alias);
-  await buildTable(resolvedGroups, prodBase, testBase, alias);
+  await buildTable(resolvedGroups, prodBase, testBase, alias, hasExternal);
 }
 
 function resetExternalToDemo() {
-  document.getElementById("externalBaseUrl").value = "https://ojs33.testdrive.publicknowledgeproject.org";
+  document.getElementById("externalBaseUrl").value = "ojs33.testdrive.publicknowledgeproject.org";
   document.getElementById("externalContext").value = "testdrive-journal";
+  document.getElementById("externalError").innerHTML = "";
   runAllTests();
 }
 
 function populateSelectAndStart() {
   const select = document.getElementById("journalSelect");
-  select.addEventListener("change", () => runAllTests());
+  select.addEventListener("change", () => {
+    updateProdTestUrls();
+    runAllTests();
+  });
   document.getElementById("runTestsBtn").addEventListener("click", () => runAllTests());
   document.getElementById("resetExternalBtn").addEventListener("click", () => resetExternalToDemo());
   const errorBtn = document.getElementById("errorToggleBtn");
@@ -553,7 +632,7 @@ function populateSelectAndStart() {
     }
     applyErrorFilter();
   });
-  // Load endpoints first, then CSV, then start
+  // Cargar endpoints y luego CSV
   loadEndpointsFromJSON().then(() => loadJournalsFromCSV());
 }
 
