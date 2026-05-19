@@ -1,7 +1,7 @@
 <?php
 /**
  * proxy.php - CORS-free URL status checker with dynamic domain whitelist
- * Supports optional delay parameter (in microseconds) to avoid rate limits.
+ * Timeout reducido a 5 segundos para mayor velocidad.
  */
 session_start();
 
@@ -59,15 +59,15 @@ if (!$allowed) {
     exit;
 }
 
-// Optional delay (in microseconds) to avoid rate limiting
+// Optional delay (in microseconds) - deshabilitado por defecto
 if (isset($_GET['delay']) && is_numeric($_GET['delay'])) {
     $delay = intval($_GET['delay']);
-    if ($delay > 0 && $delay <= 10000000) { // max 10 seconds
+    if ($delay > 0 && $delay <= 10000000) {
         usleep($delay);
     }
 }
 
-$timeout = 10;
+$timeout = 5; // Reducido de 10 a 5 segundos
 $ch = curl_init();
 curl_setopt_array($ch, [
     CURLOPT_URL => $url,
