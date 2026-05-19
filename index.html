@@ -27,24 +27,23 @@
       <button id="runTestsBtn">RUN ALL TESTS</button>
     </div>
     <div class="control-row mode-filters">
-      <span class="filter-label">🧪 URL transformation tests:</span>
-      <label class="mode-checkbox">
-        <input type="checkbox" id="filterBasic" checked> <span class="mode-badge basic">basic</span>
-        <span class="mode-desc">URLs as they are defined by PKP out of the box.</span>
-      </label>
-      <label class="mode-checkbox">
-        <input type="checkbox" id="filterCleanUrls" checked> <span class="mode-badge clean">cleanUrls</span>
-        <span class="mode-desc">If you set the <code>restful=On</code> to remove <code>index.php</code> in your URLs.</span>
-      </label>
-      <label class="mode-checkbox">
-        <input type="checkbox" id="filterHideContext" checked> <span class="mode-badge hide">hideContext</span>
-        <span class="mode-desc">If you define rules to hide the journal context (for instance, to avoid duplicates in the URL in single‑tenant installations).</span>
-      </label>
+      <span class="filter-label">Test batteries:</span>
+      <div class="mode-options">
+        <label class="mode-checkbox">
+          <input type="checkbox" id="filterBasic" checked> <strong>basic URLs:</strong> <span class="mode-desc">as they are defined by PKP out of the box.</span>
+        </label>
+        <label class="mode-checkbox">
+          <input type="checkbox" id="filterCleanUrls" checked> <strong>cleanUrls:</strong> <span class="mode-desc">If you set the <code>restful=On</code> to remove <code>index.php</code> in your URLs.</span>
+        </label>
+        <label class="mode-checkbox">
+          <input type="checkbox" id="filterHideContext" checked> <strong>hideContext:</strong> <span class="mode-desc">If you define rules to hide the journal context (for instance, to avoid duplicates in the URL in single‑tenant installations).</span>
+        </label>
+      </div>
     </div>
     <div id="externalError" class="error-msg"></div>
   </div>
 
-  <div class="toolbar">
+  <div class="toolbar" id="toolbar" style="display: none;">
     <div class="progress" id="progressMsg">Initializing...</div>
     <div id="errorToggleBtn" class="error-toggle">❗ Show errors only</div>
   </div>

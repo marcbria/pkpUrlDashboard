@@ -1,6 +1,6 @@
 // ============================================================
 // dashboard.js - PKP URL Health Monitor
-// With mode filters, table initially hidden, bold labels
+// With mode filters, table initially hidden, bold labels, toolbar hidden until test
 // ============================================================
 
 // -------------------------------
@@ -340,7 +340,7 @@ async function buildTable(groups, prodBase, testBase, alias, hasExternal, extern
     <th data-col="clean">clean</th>
     <th data-col="hide">hide</th>
     <th data-col="badge">pkpCheckUrls</th>
-  </tr>`;
+  </table>`;
 
   setupColumnToggles();
   if (!hasExternal) {
@@ -456,6 +456,11 @@ function updateActiveFilters() {
 }
 
 async function runAllTests() {
+  // Show toolbar, table wrapper and summary panel
+  document.getElementById("toolbar").style.display = "flex";
+  document.getElementById("tableWrapper").style.display = "block";
+  document.getElementById("summaryPanel").style.display = "flex";
+  
   updateActiveFilters();
   const alias = document.getElementById("journalSelect").value;
   const journal = journals.find(j => j.alias === alias);
@@ -506,11 +511,6 @@ async function runAllTests() {
   };
 
   document.getElementById("progressMsg").innerText = "Running tests...";
-  
-  // Show table and summary panel
-  document.getElementById("tableWrapper").style.display = "block";
-  document.getElementById("summaryPanel").style.display = "flex";
-  
   await buildTable(endpointGroups, prodBase, testBase, alias, hasExternal, externalFullBase);
 }
 
@@ -526,7 +526,6 @@ function populateSelectAndStart() {
     updateProdTestUrls();
     // No auto-run
   });
-  // Attach to both RUN buttons
   document.getElementById("runTestsBtn").addEventListener("click", () => runAllTests());
   document.getElementById("runTestsBtnBottom").addEventListener("click", () => runAllTests());
   document.getElementById("resetExternalBtn").addEventListener("click", () => resetExternalToDemo());
