@@ -1,7 +1,12 @@
 FROM php:8.2-apache
 
-# Instalar extensiones necesarias (curl, json, etc.)
-RUN docker-php-ext-install curl
+# Instalar dependencias del sistema y curl
+RUN apt-get update && apt-get install -y \
+        libcurl4-openssl-dev \
+        curl \
+    && docker-php-ext-install curl \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/*
 
 # Habilitar módulos de Apache
 RUN a2enmod rewrite headers
