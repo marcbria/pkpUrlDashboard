@@ -31,7 +31,7 @@ The dashboard helps you quickly see **which endpoints work, which redirect, and 
 ## How it works
 
 1. A **proxy script** (`proxy.php`) runs on your server. It receives a URL, fetches it via cURL (respecting redirections), and returns the final HTTP status and destination URL – **bypassing browser CORS restrictions**.
-2. The **dashboard** (`dashboard.html`) sends requests to the proxy and displays the results in a sortable, filterable table.
+2. The **dashboard** (`index.html`) sends requests to the proxy and displays the results in a sortable, filterable table.
 3. You can **select any journal** from a dropdown list (pre‑defined in `journals.csv`). The dashboard automatically builds the production and test URLs based on the alias.
 4. Results are summarised per endpoint mode, and you can **hide/show columns** (PROD, TEST, DEMO), **collapse/expand categories**, and **filter to show only errors**.
 5. All data stays in your browser – no external database.
@@ -49,7 +49,7 @@ The dashboard helps you quickly see **which endpoints work, which redirect, and 
 
         docker run -d -p 8080:80 --name health-monitor pkp-health-monitor
 
-4. **Open your browser** at `http://localhost:8080/dashboard.html`
+4. **Open your browser** at `http://localhost:8080/`
 
 The container runs an Apache server with PHP and serves the dashboard on port 8080 (you can change the host port if needed).
 
@@ -68,7 +68,7 @@ The container runs an Apache server with PHP and serves the dashboard on port 80
 1. **Place the files** in a directory accessible via HTTP.
 2. **Configure the allowed domains** in `proxy.php` – edit the `$allowedDomains` array and add **all domains** your dashboard will call.
 3. **(Optional) Serve the dashboard via HTTPS** – the proxy works with both HTTP and HTTPS, but to avoid mixed‑content warnings, use HTTPS for the dashboard itself.
-4. **Open `dashboard.html`** in your browser.
+4. **Open `index.html`** in your browser.
 
 ## Usage
 
@@ -87,11 +87,11 @@ The container runs an Apache server with PHP and serves the dashboard on port 80
 
 ## Customisation
 
-- To add or edit journals, modify the `journals` array inside `dashboard.html` (or the `journals.csv` for reference). The mapping logic for test URLs is:
+- To add or edit journals, modify the `journals` array inside `index.html` (or the `journals.csv` for reference). The mapping logic for test URLs is:
   - If `prodUrl` contains `revistes.uab.cat/alias` → test URL = `https://cory-revistes.precarietat.net/alias`
   - Otherwise (domain journal) → test URL = `https://cory-{alias}.precarietat.net`
-- To change the demo reference, edit `DEMO_BASE` and `DEMO_BASE_HTTP` in `dashboard.html` and the allowed domains in `proxy.php`.
-- To adjust the list of tested endpoints, edit the `defaultGroups` array in `dashboard.html`.
+- To change the demo reference, edit `DEMO_BASE` and `DEMO_BASE_HTTP` in `index.html` and the allowed domains in `proxy.php`.
+- To adjust the list of tested endpoints, edit the `defaultGroups` array in `index.html`.
 
 ## Troubleshooting
 
