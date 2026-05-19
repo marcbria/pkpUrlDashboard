@@ -81,16 +81,13 @@ function getExternalUrl(path, pathTemplate, modes, alias) {
   // Construir según el modo
   if (mode === 'basic') {
     // Para rutas basic, deben incluir /index.php/contexto/
-    // Si la ruta ya empieza con /index.php/, insertar contexto después
     if (path.startsWith('/index.php/')) {
       return fullBase + path.replace('/index.php/', `/index.php/${externalContext}/`);
     } else {
-      // Normalizar: asegurar que la ruta empiece con /
       let normalizedPath = path.startsWith('/') ? path : '/' + path;
       return fullBase + `/index.php/${externalContext}${normalizedPath}`;
     }
   } else { // cleanUrls o hideContext
-    // Prefijar el contexto a la ruta
     let normalizedPath = path.startsWith('/') ? path : '/' + path;
     return fullBase + `/${externalContext}${normalizedPath}`;
   }
@@ -203,9 +200,9 @@ function updateProdTestUrls() {
   if (!journal) return;
   const prodBase = journal.prodUrl;
   const testBase = getTestBase(alias, prodBase, journal.testUrl);
-  const prodLink = `<a href="${prodBase}" target="_blank">PROD: ${prodBase.replace(/^https?:\/\//, '')}</a>`;
-  const testLink = `<a href="${testBase}" target="_blank">TEST: ${testBase.replace(/^https?:\/\//, '')}</a>`;
-  document.getElementById("prodTestUrls").innerHTML = `${prodLink} | ${testLink}`;
+  const prodLink = `<a href="${prodBase}" target="_blank">${prodBase.replace(/^https?:\/\//, '')}</a>`;
+  const testLink = `<a href="${testBase}" target="_blank">${testBase.replace(/^https?:\/\//, '')}</a>`;
+  document.getElementById("prodTestUrls").innerHTML = `<strong>journalContext:</strong> ${alias} | PRODUCTION: ${prodLink} | TEST: ${testLink}`;
 }
 
 let endpointGroups = [];
@@ -421,7 +418,7 @@ async function buildTable(groups, prodBase, testBase, alias, hasExternal) {
     <th data-col="clean" style="text-align:center;">clean</th>
     <th data-col="hide" style="text-align:center;">hide</th>
     <th data-col="badge">pkpCheckUrls</th>
-  </table>`;
+  </tr>`;
 
   setupColumnToggles();
   if (!hasExternal) {

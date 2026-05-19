@@ -49,7 +49,7 @@ The dashboard helps you quickly see **which endpoints work, which redirect, and 
 
         docker run -d -p 8080:80 --name health-monitor pkp-health-monitor
 
-4. **Open your browser** at `http://localhost:8080/`
+4. **Open your browser** at `http://localhost:8080`
 
 The container runs an Apache server with PHP and serves the dashboard on port 8080 (you can change the host port if needed).
 
