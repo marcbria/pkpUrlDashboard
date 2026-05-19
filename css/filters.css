@@ -1,0 +1,55 @@
+.mode-filters {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 1rem;
+  padding: 0.5rem 0;
+  border-top: 1px solid #e2edf5;
+  border-bottom: 1px solid #e2edf5;
+  margin: 0.5rem 0;
+}
+.filter-label {
+  font-weight: 600;
+  font-size: 0.9rem;
+  min-width: 110px;
+}
+.mode-options {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem; /* reducido de 0.6rem */
+  flex: 1;
+}
+.mode-checkbox {
+  display: flex;
+  align-items: baseline;
+  gap: 0.25rem; /* reducido de 0.5rem */
+  cursor: pointer;
+  font-size: 0.85rem;
+  line-height: 1.3;
+}
+.mode-bullet {
+  color: #2c6e9e;
+  font-weight: bold;
+  margin-right: 0; /* eliminado margen extra */
+}
+.mode-checkbox input {
+  margin: 0;
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+}
+.mode-checkbox strong {
+  font-weight: 700;
+  min-width: 85px; /* reducido de 95px */
+}
+.mode-desc {
+  color: #2c3e50;
+  font-weight: normal;
+  flex: 1;
+}
+.mode-desc code {
+  background: #eef2f7;
+  padding: 1px 3px;
+  border-radius: 4px;
+  font-size: 0.75rem;
+}
