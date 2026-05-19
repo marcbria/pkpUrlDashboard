@@ -100,6 +100,10 @@ The container runs an Apache server with PHP and serves the dashboard on port 80
 - **CORS errors** → ensure `proxy.php` is on the same origin as the dashboard, or configure CORS headers.
 - **Redirect loops** → check your Apache/Nginx reverse proxy settings, especially `X-Forwarded-Proto` and `X-Forwarded-Host`.
 
+## Acknowledgements
+
+This tool was developed with the assistance of **DeepSeek (version 2025-03)**, an AI assistant that helped in generating, refactoring, and documenting the code.
+
 ## License
 
-GPL – feel free to use, modify, and distribute.
+GPLv3 – feel free to use, modify, and distribute.
