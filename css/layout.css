@@ -27,11 +27,11 @@ select, input {
 }
 
 select {
-  min-width: 180px;
+  min-width: 40px;
 }
 
 input {
-  min-width: 200px;
+  min-width: 40px;
 }
 
 .prod-test-urls {
