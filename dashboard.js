@@ -1,7 +1,6 @@
 // ============================================================
 // dashboard.js - PKP URL Health Monitor
-// Simplified version: URLs built solely from pathTemplate replacement
-// Added mode filters (basic, cleanUrls, hideContext)
+// With mode filters, table initially hidden, bold labels
 // ============================================================
 
 // -------------------------------
@@ -17,7 +16,7 @@ let externalBaseUrl = "";
 let externalContext = "";
 let currentErrorOnly = false;
 
-// Active mode filters (initialized from checkboxes)
+// Active mode filters
 let activeModes = {
   basic: true,
   cleanUrls: true,
@@ -142,7 +141,7 @@ async function loadJournalsFromCSV() {
     document.getElementById('externalContext').value = initialExternalContext || "";
 
     updateProdTestUrls();
-    // No auto-run
+    // No auto-run tests, table remains hidden
   } catch (err) {
     console.error('Failed to load journals.csv', err);
     document.getElementById('progressMsg').innerText = 'Error loading journals.csv';
@@ -158,7 +157,7 @@ function updateProdTestUrls() {
   const testBase = getTestBase(alias, prodBase, journal.testUrl);
   const prodLink = `<a href="${prodBase}" target="_blank">${prodBase.replace(/^https?:\/\//, '')}</a>`;
   const testLink = `<a href="${testBase}" target="_blank">${testBase.replace(/^https?:\/\//, '')}</a>`;
-  document.getElementById("prodTestUrls").innerHTML = `<strong>journalContext:</strong> ${alias} | PRODUCTION: ${prodLink} | TEST: ${testLink}`;
+  document.getElementById("prodTestUrls").innerHTML = `<strong>journalContext:</strong> ${alias} | <strong>PRODUCTION</strong>: ${prodLink} | <strong>TEST</strong>: ${testLink}`;
 }
 
 let endpointGroups = [];
@@ -341,7 +340,7 @@ async function buildTable(groups, prodBase, testBase, alias, hasExternal, extern
     <th data-col="clean">clean</th>
     <th data-col="hide">hide</th>
     <th data-col="badge">pkpCheckUrls</th>
-  </table>`;
+  </tr>`;
 
   setupColumnToggles();
   if (!hasExternal) {
@@ -372,20 +371,16 @@ async function buildTable(groups, prodBase, testBase, alias, hasExternal, extern
     });
 
     for (let ep of group.endpoints) {
-      // Filter by active modes: include endpoint if it has at least one mode active
       const endpointModes = ep.modes || [];
       const hasActiveMode = endpointModes.some(mode => activeModes[mode] === true);
-      if (!hasActiveMode) continue; // skip this endpoint
+      if (!hasActiveMode) continue;
 
       const pathTemplate = ep.pathTemplate;
       const isHttpTest = (pathTemplate === "http://");
-      // Build PROD url
       let prodPath = replaceAlias(pathTemplate, alias);
       let prodUrl = isHttpTest ? prodBase.replace(/^https:/, 'http:') : prodBase + prodPath;
-      // Build TEST url
       let testPath = replaceAlias(pathTemplate, alias);
       let testUrl = isHttpTest ? testBase.replace(/^https:/, 'http:') : testBase + testPath;
-      // Build EXTERNAL url
       let externalUrl = null;
       let externalDisplayPath = null;
       if (hasExternal && externalFullBase) {
@@ -511,6 +506,11 @@ async function runAllTests() {
   };
 
   document.getElementById("progressMsg").innerText = "Running tests...";
+  
+  // Show table and summary panel
+  document.getElementById("tableWrapper").style.display = "block";
+  document.getElementById("summaryPanel").style.display = "flex";
+  
   await buildTable(endpointGroups, prodBase, testBase, alias, hasExternal, externalFullBase);
 }
 
@@ -526,7 +526,9 @@ function populateSelectAndStart() {
     updateProdTestUrls();
     // No auto-run
   });
+  // Attach to both RUN buttons
   document.getElementById("runTestsBtn").addEventListener("click", () => runAllTests());
+  document.getElementById("runTestsBtnBottom").addEventListener("click", () => runAllTests());
   document.getElementById("resetExternalBtn").addEventListener("click", () => resetExternalToDemo());
   const errorBtn = document.getElementById("errorToggleBtn");
   errorBtn.addEventListener("click", () => {
