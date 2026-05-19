@@ -129,8 +129,8 @@ input {
 .mode-filters {
   display: flex;
   flex-wrap: wrap;
-  align-items: center;
-  gap: 1.5rem;
+  align-items: flex-start;
+  gap: 1rem;
   padding: 0.5rem 0;
   border-top: 1px solid #e2edf5;
   border-bottom: 1px solid #e2edf5;
@@ -139,37 +139,47 @@ input {
 .filter-label {
   font-weight: 600;
   font-size: 0.9rem;
+  min-width: 110px;
+}
+.mode-options {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  flex: 1;
 }
 .mode-checkbox {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.4rem;
+  display: flex;
+  align-items: baseline;
+  gap: 0.5rem;
   cursor: pointer;
   font-size: 0.85rem;
+  line-height: 1.4;
+}
+.mode-bullet {
+  color: #2c6e9e;
+  font-weight: bold;
+  margin-right: 0.2rem;
 }
 .mode-checkbox input {
   margin: 0;
   width: 16px;
   height: 16px;
+  flex-shrink: 0;
 }
-.mode-badge {
-  font-weight: 600;
-  padding: 2px 6px;
-  border-radius: 12px;
-  background: #eef2f7;
+.mode-checkbox strong {
+  font-weight: 700;
+  min-width: 95px;
 }
-.mode-badge.basic { background: #d4edda; color: #155724; }
-.mode-badge.clean { background: #d1ecf1; color: #0c5460; }
-.mode-badge.hide { background: #fff3cd; color: #856404; }
 .mode-desc {
-  color: #5b7f95;
-  font-size: 0.75rem;
+  color: #2c3e50;
+  font-weight: normal;
+  flex: 1;
 }
 .mode-desc code {
   background: #eef2f7;
   padding: 1px 3px;
   border-radius: 4px;
-  font-size: 0.7rem;
+  font-size: 0.75rem;
 }
 
 .table-wrapper {
@@ -333,6 +343,7 @@ td {
 .comparison .main-line {
   color: #2b6e3c;
   display: block;
+  font-weight: bold;
 }
 
 .comparison .sub-line {
@@ -370,7 +381,6 @@ button:hover {
   background: #1f4f73;
 }
 
-/* Big RUN button */
 .run-tests-btn {
   background: #2c6e9e;
   border: none;

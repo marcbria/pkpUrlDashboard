@@ -30,13 +30,22 @@
       <span class="filter-label">Test batteries:</span>
       <div class="mode-options">
         <label class="mode-checkbox">
-          <input type="checkbox" id="filterBasic" checked> <strong>basic URLs:</strong> <span class="mode-desc">as they are defined by PKP out of the box.</span>
+          <span class="mode-bullet">-</span>
+          <input type="checkbox" id="filterBasic" checked>
+          <strong>basic URLs:</strong>
+          <span class="mode-desc">as they are defined by PKP out of the box.</span>
         </label>
         <label class="mode-checkbox">
-          <input type="checkbox" id="filterCleanUrls" checked> <strong>cleanUrls:</strong> <span class="mode-desc">if you set "restful_urls = On" to remove index.php in your URLs.</span>
+          <span class="mode-bullet">-</span>
+          <input type="checkbox" id="filterCleanUrls" checked>
+          <strong>cleanUrls:</strong>
+          <span class="mode-desc">if you set "restful_urls = On" to remove index.php in your URLs.</span>
         </label>
         <label class="mode-checkbox">
-          <input type="checkbox" id="filterHideContext" checked> <strong>hideContext:</strong> <span class="mode-desc">if you define rules to hide the journal context (for instance, to avoid duplicates in the URL in single‑tenant installations).</span>
+          <span class="mode-bullet">-</span>
+          <input type="checkbox" id="filterHideContext" checked>
+          <strong>hideContext:</strong>
+          <span class="mode-desc">if you define rules to hide the journal context (for instance, to avoid duplicates in the URL in single‑tenant installations).</span>
         </label>
       </div>
     </div>
@@ -50,7 +59,7 @@
 
   <div id="tableWrapper" class="table-wrapper" style="display: none;">
     <table id="urlTable">
-      <thead id="tableHeader"><tr><th>Loading...</th></tr></thead>
+      <thead id="tableHeader"><table><th>Loading...</th></tr></thead>
       <tbody></tbody>
     </table>
   </div>

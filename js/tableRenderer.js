@@ -133,20 +133,43 @@ export function computeAndDisplaySummary(hasExternal) {
 
   function cmp(prodOk, testOk, externalOk) {
     if (!hasExternal) {
-      if (testOk >= prodOk) return (testOk === prodOk) ? "✅ TEST = PRODUCTION" : "🏆 TEST better than PRODUCTION";
+      if (testOk >= prodOk) {
+        if (testOk === prodOk) return "✅ TEST = PRODUCTION";
+        return "🏆 TEST better than PRODUCTION";
+      }
       return "⚠️ TEST worse than PRODUCTION";
     }
-    let mainText = "";
+    let mainText = "", subText = "";
     if (testOk >= prodOk && testOk >= externalOk) {
-      if (testOk === prodOk && testOk === externalOk) mainText = "✅ TEST equal to others";
-      else if (testOk > prodOk && testOk > externalOk) mainText = "🏆 TEST best";
-      else if (testOk === prodOk && testOk > externalOk) mainText = "✅ TEST & PRODUCTION equal (better than EXTERNAL)";
-      else if (testOk === externalOk && testOk > prodOk) mainText = "✅ TEST & EXTERNAL equal (better than PRODUCTION)";
-      else mainText = "✅ TEST good";
-    } else if (testOk < prodOk && testOk < externalOk) mainText = "❌ TEST worse than both";
-    else mainText = "⚠️ TEST improvable";
+      if (testOk === prodOk && testOk === externalOk) {
+        mainText = "✅ TEST equal to others";
+      } else if (testOk > prodOk && testOk > externalOk) {
+        mainText = "🏆 TEST best";
+      } else if (testOk === prodOk && testOk > externalOk) {
+        mainText = "✅ TEST & PRODUCTION equal";
+        subText = "(better than EXTERNAL)";
+      } else if (testOk === externalOk && testOk > prodOk) {
+        mainText = "✅ TEST & EXTERNAL equal";
+        subText = "(better than PRODUCTION)";
+      } else {
+        mainText = "✅ TEST good";
+      }
+    } else if (testOk < prodOk && testOk < externalOk) {
+      mainText = "❌ TEST worse than both";
+    } else {
+      mainText = "⚠️ TEST improvable";
+    }
     let colorClass = mainText.includes("✅") || mainText.includes("🏆") ? "green" : (mainText.includes("❌") ? "red" : "orange");
-    return `<div class="comparison ${colorClass}"><span class="main-line">${mainText}</span></div>`;
+    if (subText) {
+      return `<div class="comparison ${colorClass}">
+                <span class="main-line">${mainText}</span>
+                <span class="sub-line">${subText}</span>
+              </div>`;
+    } else {
+      return `<div class="comparison ${colorClass}">
+                <span class="main-line">${mainText}</span>
+              </div>`;
+    }
   }
 
   const summaryHtml = `
