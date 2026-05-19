@@ -19,10 +19,10 @@ services:
       - "traefik.enable=true"
 
       # HTTPS routers:
-      - "traefik.http.routers.monitor-secure.rule=Host(`pkpurl.precarietat.net`,`cory-pkpurl.precarietat.net`)"
-      - "traefik.http.routers.monitor-secure.entrypoints=websecure"
-      - "traefik.http.routers.monitor-secure.tls=true"
-      - "traefik.http.routers.monitor-secure.tls.certresolver=leresolver"
+      - "traefik.http.routers.pkpurl-secure.rule=Host(`pkpurl.precarietat.net`,`cory-pkpurl.precarietat.net`)"
+      - "traefik.http.routers.pkpurl-secure.entrypoints=websecure"
+      - "traefik.http.routers.pkpurl-secure.tls=true"
+      - "traefik.http.routers.pkpurl-secure.tls.certresolver=leresolver"
 
     networks:
       - proxy
