@@ -56,29 +56,44 @@ async function registerExternalDomain(domain) {
 }
 
 // Construye URL para external usando externalContext, no el alias
-function getExternalUrl(path, pathTemplate, alias) {
+function getExternalUrl(path, pathTemplate, modes, alias) {
   if (!externalBaseUrl || !externalContext) return null;
   let fullBase = getFullExternalBase();
   if (!fullBase) return null;
   fullBase = fullBase.replace(/\/$/, '');
-  if (path === "http://") return fullBase.replace(/^https:/, 'http:');
+  
+  // Casos especiales: raíz
   if (path === "") return fullBase;
-
-  let finalPath = path;
-  // Si el endpoint usa pathTemplate, reemplazar {alias} por externalContext
+  if (path === "http://") return fullBase.replace(/^https:/, 'http:');
+  
+  // Si tiene pathTemplate, reemplazar {alias} por externalContext
   if (pathTemplate && pathTemplate.includes('{alias}')) {
-    finalPath = pathTemplate.replace(/{alias}/g, externalContext);
-  } else if (path.startsWith("/index.php/") && !path.includes("/index.php/")) {
-    // Para rutas basic que empiezan con /index.php/{alias} hay que sustituir el alias por context
-    const match = path.match(/^\/index\.php\/[^/]+(\/.*)$/);
-    if (match) {
-      finalPath = `/index.php/${externalContext}${match[1]}`;
-    }
-  }
-  if (finalPath.startsWith("/")) {
+    let finalPath = pathTemplate.replace(/{alias}/g, externalContext);
     return fullBase + finalPath;
   }
-  return fullBase + "/" + finalPath;
+  
+  // Determinar el modo principal (basic, cleanUrls, hideContext)
+  let mode = 'basic';
+  if (modes.includes('cleanUrls')) mode = 'cleanUrls';
+  else if (modes.includes('hideContext')) mode = 'hideContext';
+  else if (modes.includes('basic')) mode = 'basic';
+  
+  // Construir según el modo
+  if (mode === 'basic') {
+    // Para rutas basic, deben incluir /index.php/contexto/
+    // Si la ruta ya empieza con /index.php/, insertar contexto después
+    if (path.startsWith('/index.php/')) {
+      return fullBase + path.replace('/index.php/', `/index.php/${externalContext}/`);
+    } else {
+      // Normalizar: asegurar que la ruta empiece con /
+      let normalizedPath = path.startsWith('/') ? path : '/' + path;
+      return fullBase + `/index.php/${externalContext}${normalizedPath}`;
+    }
+  } else { // cleanUrls o hideContext
+    // Prefijar el contexto a la ruta
+    let normalizedPath = path.startsWith('/') ? path : '/' + path;
+    return fullBase + `/${externalContext}${normalizedPath}`;
+  }
 }
 
 async function checkUrlViaProxy(url, useDelay = false) {
@@ -376,7 +391,7 @@ function computeAndDisplaySummary() {
       ${cmp(modeStats.cleanUrls.prodOk, modeStats.cleanUrls.testOk, modeStats.cleanUrls.externalOk)}
     </div>
     <div class="summary-block">
-      <h4>🚀 hideContext mode</h4>
+      <h4>🚀 hide mode</h4>
       <div class="stat-number">${modeStats.hideContext.total} endpoints</div>
       <div class="stat-detail">PRODUCTION OK: ${modeStats.hideContext.prodOk} | TEST OK: ${modeStats.hideContext.testOk}${hasExternal ? ` | EXTERNAL OK: ${modeStats.hideContext.externalOk}` : ''}</div>
       ${cmp(modeStats.hideContext.prodOk, modeStats.hideContext.testOk, modeStats.hideContext.externalOk)}
@@ -406,7 +421,7 @@ async function buildTable(groups, prodBase, testBase, alias, hasExternal) {
     <th data-col="clean" style="text-align:center;">clean</th>
     <th data-col="hide" style="text-align:center;">hide</th>
     <th data-col="badge">pkpCheckUrls</th>
-  </tr>`;
+  </table>`;
 
   setupColumnToggles();
   if (!hasExternal) {
@@ -444,7 +459,7 @@ async function buildTable(groups, prodBase, testBase, alias, hasExternal) {
       const isHttpTest = (ep.path === "http://");
       let prodUrl = isHttpTest ? prodBase.replace(/^https:/, 'http:') : prodBase + ep.path;
       let testUrl = isHttpTest ? testBase.replace(/^https:/, 'http:') : testBase + ep.path;
-      let externalUrl = hasExternal ? getExternalUrl(ep.path, ep.pathTemplate, alias) : null;
+      let externalUrl = hasExternal ? getExternalUrl(ep.path, ep.pathTemplate, ep.modes, alias) : null;
 
       const tr = document.createElement("tr");
       const tdDesc = document.createElement("td");
@@ -573,17 +588,6 @@ async function runAllTests() {
     externalContext = "";
     hasExternal = false;
   }
-
-  // Mostrar en baseInfo
-  const baseDiv = document.getElementById("baseInfo");
-  const prodLink = `<a href="${prodBase}" target="_blank">${prodBase.replace(/^https?:\/\//, '')}</a>`;
-  const testLink = `<a href="${testBase}" target="_blank">${testBase.replace(/^https?:\/\//, '')}</a>`;
-  let externalHtml = "";
-  if (hasExternal) {
-    const externalFull = "https://" + externalBaseUrl;
-    externalHtml = ` | EXTERNAL: <a href="${externalFull}" target="_blank">${externalBaseUrl}</a> (context: ${externalContext})`;
-  }
-  baseDiv.innerHTML = `PRODUCTION: ${prodLink} | TEST: ${testLink}${externalHtml}`;
 
   // Guardar estado en URL
   const urlParams = new URLSearchParams();
