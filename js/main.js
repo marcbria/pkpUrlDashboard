@@ -10,6 +10,7 @@ let externalBaseUrl = "";
 let externalContext = "";
 
 async function runAllTests() {
+  // Show UI elements
   document.getElementById("toolbar").style.display = "flex";
   document.getElementById("tableWrapper").style.display = "block";
   document.getElementById("summaryPanel").style.display = "flex";
@@ -52,6 +53,7 @@ async function runAllTests() {
 
   setExternalState(externalBaseUrl, externalContext);
 
+  // Save state to URL
   const urlParams = new URLSearchParams();
   urlParams.set('journal', alias);
   if (hasExternal) {
