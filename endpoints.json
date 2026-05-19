@@ -5,9 +5,9 @@
       "endpoints": [
         { "path": "", "desc": "Root (HTTPS)", "tested": true, "modes": ["basic", "hideContext"] },
         { "path": "http://", "desc": "Root (HTTP)", "tested": false, "modes": [] },
-        { "path": "/index", "desc": "/index (clean/hide)", "tested": true, "modes": ["cleanUrls", "hideContext"] },
         { "path": "/index.php", "desc": "/index.php (basic)", "tested": true, "modes": ["basic"] },
-        { "path": "/index.php/index", "desc": "/index.php/index", "tested": true, "modes": ["basic"] }
+        { "path": "/index.php/index", "desc": "/index.php/index", "tested": true, "modes": ["basic"] },
+        { "path": "/index", "desc": "/index (clean/hide)", "tested": true, "modes": ["cleanUrls", "hideContext"] }
       ]
     },
     {
@@ -30,8 +30,8 @@
     {
       "name": "⚙️ API endpoints",
       "endpoints": [
-        { "path": "/api/v1/contexts/1", "desc": "API journal (clean/hide)", "tested": true, "modes": ["cleanUrls", "hideContext"] },
-        { "pathTemplate": "/index.php/{alias}/api/v1/contexts/1", "desc": "API journal (basic)", "tested": true, "modes": ["basic"] }
+        { "pathTemplate": "/index.php/{alias}/api/v1/contexts/1", "desc": "API journal (basic)", "tested": true, "modes": ["basic"] },
+        { "path": "/api/v1/contexts/1", "desc": "API journal (clean/hide)", "tested": true, "modes": ["cleanUrls", "hideContext"] }
       ]
     },
     {
@@ -47,17 +47,17 @@
     {
       "name": "🔐 Admin & authentication",
       "endpoints": [
-        { "path": "/index/login", "desc": "Login (hide)", "tested": false, "modes": ["hideContext"] },
         { "path": "/index.php/index/login", "desc": "Login (basic)", "tested": false, "modes": ["basic"] },
-        { "path": "/index/admin", "desc": "Admin panel (hide)", "tested": false, "modes": ["hideContext"] },
-        { "path": "/index.php/index/admin", "desc": "Admin panel (basic)", "tested": true, "modes": ["basic"] }
+        { "path": "/index.php/index/admin", "desc": "Admin panel (basic)", "tested": true, "modes": ["basic"] },
+        { "path": "/index/login", "desc": "Login (hide)", "tested": false, "modes": ["hideContext"] },
+        { "path": "/index/admin", "desc": "Admin panel (hide)", "tested": false, "modes": ["hideContext"] }
       ]
     },
     {
       "name": "🔧 Installation (reference)",
       "endpoints": [
-        { "path": "/index/install/install", "desc": "Install (clean/hide)", "tested": true, "modes": ["cleanUrls", "hideContext"] },
-        { "path": "/index.php/index/install/install", "desc": "Install (basic)", "tested": true, "modes": ["basic"] }
+        { "path": "/index.php/index/install/install", "desc": "Install (basic)", "tested": true, "modes": ["basic"] },
+        { "path": "/index/install/install", "desc": "Install (clean/hide)", "tested": true, "modes": ["cleanUrls", "hideContext"] }
       ]
     }
   ]
