@@ -1,0 +1,32 @@
+#########################################################################
+#
+# General settings
+# File: docker-compose.override.yml
+#
+# Site:      pkpurl
+# Tool:      pkpUrlDashboard
+# Version:   1.23.16
+# Creation:  2025-03-03T16:17:58Z
+#
+#########################################################################
+
+
+
+services:
+  app:
+    labels:
+      # Enable traefik for this stack:
+      - "traefik.enable=true"
+
+      # HTTPS routers:
+      - "traefik.http.routers.monitor-secure.rule=Host(`pkpurl.precarietat.net`,`cory-pkpurl.precarietat.net`)"
+      - "traefik.http.routers.monitor-secure.entrypoints=websecure"
+      - "traefik.http.routers.monitor-secure.tls=true"
+      - "traefik.http.routers.monitor-secure.tls.certresolver=leresolver"
+
+    networks:
+      - proxy
+
+networks:
+  proxy:
+    external: true

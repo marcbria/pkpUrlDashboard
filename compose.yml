@@ -1,5 +1,5 @@
 services:
-  pkp-health-monitor:
+  app:
     build: .
     container_name: pkp-health-monitor
 #    ports:
