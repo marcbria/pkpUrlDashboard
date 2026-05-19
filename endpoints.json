@@ -1,0 +1,64 @@
+{
+  "groups": [
+    {
+      "name": "🏠 Home & index",
+      "endpoints": [
+        { "path": "", "desc": "Root (HTTPS)", "tested": true, "modes": ["basic", "hideContext"] },
+        { "path": "http://", "desc": "Root (HTTP)", "tested": false, "modes": [] },
+        { "path": "/index", "desc": "/index (clean/hide)", "tested": true, "modes": ["cleanUrls", "hideContext"] },
+        { "path": "/index.php", "desc": "/index.php (basic)", "tested": true, "modes": ["basic"] },
+        { "path": "/index.php/index", "desc": "/index.php/index", "tested": true, "modes": ["basic"] }
+      ]
+    },
+    {
+      "name": "📄 Journal pages",
+      "endpoints": [
+        { "pathTemplate": "/index.php/{alias}/about", "desc": "about (basic)", "tested": true, "modes": ["basic"] },
+        { "pathTemplate": "/index.php/{alias}/issue/current", "desc": "current issue (basic)", "tested": false, "modes": ["basic"] },
+        { "pathTemplate": "/index.php/{alias}/issue/archive", "desc": "archive (basic)", "tested": false, "modes": ["basic"] },
+        { "pathTemplate": "/index.php/{alias}/$$$call$$$/page/page/css?name=stylesheet", "desc": "$$$call$$$ (basic)", "tested": false, "modes": ["basic"] },
+        { "path": "/about", "desc": "about (hideContext)", "tested": true, "modes": ["hideContext"] },
+        { "path": "/about/submissions", "desc": "Submissions (hideContext)", "tested": true, "modes": ["hideContext"] },
+        { "path": "/about/editorialTeam", "desc": "Editorial team (hideContext)", "tested": false, "modes": ["hideContext"] },
+        { "path": "/about/contact", "desc": "Contact (hideContext)", "tested": false, "modes": ["hideContext"] },
+        { "path": "/about/privacy", "desc": "Privacy (hideContext)", "tested": false, "modes": ["hideContext"] },
+        { "path": "/issue/current", "desc": "Current issue (hideContext)", "tested": true, "modes": ["hideContext"] },
+        { "path": "/issue/archive", "desc": "Archive (hideContext)", "tested": true, "modes": ["hideContext"] },
+        { "path": "/$$$call$$$/page/page/css?name=stylesheet", "desc": "$$$call$$$ (hideContext)", "tested": false, "modes": ["hideContext"] }
+      ]
+    },
+    {
+      "name": "⚙️ API endpoints",
+      "endpoints": [
+        { "path": "/api/v1/contexts/1", "desc": "API journal (clean/hide)", "tested": true, "modes": ["cleanUrls", "hideContext"] },
+        { "pathTemplate": "/index.php/{alias}/api/v1/contexts/1", "desc": "API journal (basic)", "tested": true, "modes": ["basic"] }
+      ]
+    },
+    {
+      "name": "📡 OAI endpoints",
+      "endpoints": [
+        { "pathTemplate": "/index.php/{alias}/oai", "desc": "OAI journal (basic)", "tested": true, "modes": ["basic"] },
+        { "path": "/index.php/index/oai", "desc": "OAI site (basic)", "tested": true, "modes": ["basic"] },
+        { "path": "/oai", "desc": "OAI journal (hide)", "tested": true, "modes": ["hideContext"] },
+        { "path": "/index/oai", "desc": "OAI site (clean/hide)", "tested": true, "modes": ["cleanUrls", "hideContext"] },
+        { "path": "/admin/index/oai", "desc": "OAI admin (alt)", "tested": false, "modes": ["hideContext"] }
+      ]
+    },
+    {
+      "name": "🔐 Admin & authentication",
+      "endpoints": [
+        { "path": "/index/login", "desc": "Login (hide)", "tested": false, "modes": ["hideContext"] },
+        { "path": "/index.php/index/login", "desc": "Login (basic)", "tested": false, "modes": ["basic"] },
+        { "path": "/index/admin", "desc": "Admin panel (hide)", "tested": false, "modes": ["hideContext"] },
+        { "path": "/index.php/index/admin", "desc": "Admin panel (basic)", "tested": true, "modes": ["basic"] }
+      ]
+    },
+    {
+      "name": "🔧 Installation (reference)",
+      "endpoints": [
+        { "path": "/index/install/install", "desc": "Install (clean/hide)", "tested": true, "modes": ["cleanUrls", "hideContext"] },
+        { "path": "/index.php/index/install/install", "desc": "Install (basic)", "tested": true, "modes": ["basic"] }
+      ]
+    }
+  ]
+}

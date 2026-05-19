@@ -1,0 +1,6 @@
+# .htaccess en el directorio de proxy.php
+<FilesMatch "\.(php|html?)$">
+    SetHandler application/x-httpd-php
+</FilesMatch>
+Options +ExecCGI
+AddHandler php-script .php

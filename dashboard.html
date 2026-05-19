@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>📡 ReDi Service: PKP URL Health Monitor</title>
+  <link rel="stylesheet" href="dashboard.css">
+  <script src="dashboard.js" defer></script>
+</head>
+<body>
+<div class="container">
+  <h1>📡 ReDi Service: PKP URL Health Monitor</h1>
+  <div class="sub">Compare <strong>production</strong> vs <strong>test</strong> (from CSV) vs an <strong>external base URL</strong> (any domain allowed).</div>
+
+  <div class="control-panel">
+    <label>Journal:</label>
+    <select id="journalSelect" disabled><option>Loading journals...</option></select>
+    <label>EXTERNAL base:</label>
+    <input type="text" id="externalBaseUrl" value="https://ojs33.testdrive.publicknowledgeproject.org" size="30">
+    <label>context:</label>
+    <input type="text" id="externalContext" value="testdrive-journal" size="20">
+    <button id="resetExternalBtn" class="reset-icon" title="Reset to PKP demo">⟳</button>
+    <button id="runTestsBtn">RUN ALL TESTS</button>
+    <div id="baseInfo" class="base-info"></div>
+  </div>
+
+  <div class="toolbar">
+    <div class="progress" id="progressMsg">Initializing...</div>
+    <div id="errorToggleBtn" class="error-toggle">❗ Show errors only</div>
+  </div>
+
+  <div class="table-wrapper">
+    <table id="urlTable">
+      <thead id="tableHeader"><tr><th>Loading...</th></tr></thead>
+      <tbody></tbody>
+    </table>
+  </div>
+
+  <div class="summary" id="summaryPanel"></div>
+
+  <div style="text-align: center; margin-top: 1rem;">
+    <div id="copyUrlBtn" class="copy-btn">📋 Copy the URL of this test</div>
+  </div>
+
+  <footer>Tests via <code>proxy.php</code> (same directory). Click column header to compact/expand.<br>
+  Journals from <code>journals.csv</code>. Format: <code>alias,prod_url,test_url</code>.<br>
+  External domain is dynamically allowed; external calls have a 2s delay to avoid rate limits.</footer>
+</div>
+</body>
+</html>
