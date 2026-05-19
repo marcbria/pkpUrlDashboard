@@ -1,19 +1,18 @@
 // ============================================================
 // dashboard.js - PKP URL Health Monitor
-// Version: simplified - no automatic sorting, relies on endpoints.json order
+// Simplified version: URLs built solely from pathTemplate replacement
 // ============================================================
 
 // -------------------------------
 // Constants & Configuration
 // -------------------------------
 const PROXY_PATH = "proxy.php";
-const EXTERNAL_DELAY_US = 0;          // no delay (microseconds)
+const EXTERNAL_DELAY_US = 0;
 const CSV_FILE = "journals.csv";
 const ENDPOINTS_FILE = "endpoints.json";
 
-// Global state
 let journals = [];
-let externalBaseUrl = "";              // stored without protocol
+let externalBaseUrl = "";
 let externalContext = "";
 let currentErrorOnly = false;
 
@@ -23,9 +22,7 @@ let currentErrorOnly = false;
 function normalizeExternalBase(raw) {
   if (!raw) return "";
   let s = raw.trim();
-  if (s.startsWith('http://') || s.startsWith('https://')) {
-    return null; // error: protocol not allowed
-  }
+  if (s.startsWith('http://') || s.startsWith('https://')) return null;
   return s;
 }
 
@@ -40,9 +37,7 @@ function getTestBase(alias, prodUrl, optionalTestUrl) {
     return `https://cory-revistes.precarietat.net/${alias}`;
   } else {
     const match = prodUrl.match(/https?:\/\/([^.]+)\./);
-    if (match && match[1]) {
-      return `https://cory-${match[1]}.precarietat.net`;
-    }
+    if (match && match[1]) return `https://cory-${match[1]}.precarietat.net`;
     return `https://cory-${alias}.precarietat.net`;
   }
 }
@@ -50,57 +45,18 @@ function getTestBase(alias, prodUrl, optionalTestUrl) {
 async function registerExternalDomain(domain) {
   if (!domain) return;
   try {
-    const registerUrl = `${PROXY_PATH}?add_domain=${encodeURIComponent(domain)}`;
-    await fetch(registerUrl, { method: 'HEAD', cache: 'no-store' });
-  } catch(e) { /* ignore */ }
+    await fetch(`${PROXY_PATH}?add_domain=${encodeURIComponent(domain)}`, { method: 'HEAD', cache: 'no-store' });
+  } catch(e) {}
 }
 
-// Build external URL using externalContext (not alias)
-function getExternalUrl(path, pathTemplate, modes, alias) {
-  if (!externalBaseUrl || !externalContext) return null;
-  let fullBase = getFullExternalBase();
-  if (!fullBase) return null;
-  fullBase = fullBase.replace(/\/$/, '');
-  
-  // Special cases: root
-  if (path === "") return fullBase;
-  if (path === "http://") return fullBase.replace(/^https:/, 'http:');
-  
-  // If pathTemplate exists, replace {alias} with externalContext
-  if (pathTemplate && pathTemplate.includes('{alias}')) {
-    let finalPath = pathTemplate.replace(/{alias}/g, externalContext);
-    return fullBase + finalPath;
-  }
-  
-  // Normalize path
-  let normalizedPath = path.startsWith('/') ? path : '/' + path;
-  
-  // Apply cleanUrls: remove /index.php if present
-  let pathWithoutIndexPhp = normalizedPath;
-  if (modes.includes('cleanUrls')) {
-    pathWithoutIndexPhp = pathWithoutIndexPhp.replace(/^\/index\.php/, '');
-    if (pathWithoutIndexPhp === '') pathWithoutIndexPhp = '/';
-  }
-  
-  // Apply hideContext: add context only if NOT hiding it
-  let finalPath = pathWithoutIndexPhp;
-  if (!modes.includes('hideContext')) {
-    // Add context slug
-    if (finalPath.startsWith('/')) {
-      finalPath = `/${externalContext}${finalPath}`;
-    } else {
-      finalPath = `/${externalContext}/${finalPath}`;
-    }
-  }
-  
-  return fullBase + finalPath;
+function replaceAlias(pathTemplate, alias) {
+  if (!pathTemplate) return "";
+  return pathTemplate.replace(/{alias}/g, alias);
 }
 
 async function checkUrlViaProxy(url, useDelay = false) {
   let proxyUrl = `${PROXY_PATH}?url=${encodeURIComponent(url)}`;
-  if (useDelay) {
-    proxyUrl += `&delay=${EXTERNAL_DELAY_US}`;
-  }
+  if (useDelay) proxyUrl += `&delay=${EXTERNAL_DELAY_US}`;
   try {
     const res = await fetch(proxyUrl);
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
@@ -124,9 +80,8 @@ async function testAndRenderCell(cell, url, isRoot = false, useDelay = false, di
   const bgClass = getBgClass(status);
   let displayUrl = displayPath;
   if (!displayUrl) {
-    if (isRoot) {
-      displayUrl = url;
-    } else {
+    if (isRoot) displayUrl = url;
+    else {
       try {
         const urlObj = new URL(url);
         displayUrl = urlObj.pathname + urlObj.search;
@@ -140,7 +95,7 @@ async function testAndRenderCell(cell, url, isRoot = false, useDelay = false, di
 }
 
 // -------------------------------
-// Data Loading (CSV + JSON endpoints)
+// Data Loading
 // -------------------------------
 async function loadJournalsFromCSV() {
   try {
@@ -169,29 +124,15 @@ async function loadJournalsFromCSV() {
     });
     select.disabled = false;
 
-    // URL parameters
     const urlParams = new URLSearchParams(window.location.search);
     let initialJournal = urlParams.get('journal');
     let initialExternalBase = urlParams.get('external_base_url');
     let initialExternalContext = urlParams.get('external_context');
 
-    if (initialJournal && journals.some(j => j.alias === initialJournal)) {
-      select.value = initialJournal;
-    } else {
-      select.value = "brumal";
-    }
-    if (initialExternalBase) {
-      document.getElementById('externalBaseUrl').value = initialExternalBase;
-    } else {
-      document.getElementById('externalBaseUrl').value = "";
-    }
-    if (initialExternalContext) {
-      document.getElementById('externalContext').value = initialExternalContext;
-    } else {
-      document.getElementById('externalContext').value = "";
-    }
+    select.value = (initialJournal && journals.some(j => j.alias === initialJournal)) ? initialJournal : "brumal";
+    document.getElementById('externalBaseUrl').value = initialExternalBase || "";
+    document.getElementById('externalContext').value = initialExternalContext || "";
 
-    // Show PROD/TEST urls
     updateProdTestUrls();
     setTimeout(() => runAllTests(), 100);
   } catch (err) {
@@ -217,31 +158,16 @@ async function loadEndpointsFromJSON() {
   try {
     const response = await fetch(ENDPOINTS_FILE);
     const data = await response.json();
-    // No sorting - preserve order from JSON file
-    endpointGroups = data.groups;
+    endpointGroups = data.groups; // no sorting
   } catch (err) {
     console.error('Failed to load endpoints.json', err);
     endpointGroups = [];
   }
 }
 
-function resolveEndpoints(groups, alias) {
-  return groups.map(group => ({
-    ...group,
-    endpoints: group.endpoints.map(ep => {
-      if (ep.pathTemplate) {
-        return { ...ep, path: ep.pathTemplate.replace(/{alias}/g, alias), pathTemplate: ep.pathTemplate, modes: ep.modes };
-      }
-      return { ...ep, path: ep.path, pathTemplate: null };
-    })
-  }));
-}
-
 // -------------------------------
 // Table rendering and UI logic
 // -------------------------------
-let currentGroups = [];
-
 function setupColumnToggles() {
   const headers = document.querySelectorAll("#tableHeader th[data-col]");
   headers.forEach(th => {
@@ -278,13 +204,11 @@ function setupColumnToggles() {
         newTh.classList.add("col-compact");
       }
     });
-    // Only auto-compact mode columns and badge, not external
     const shouldBeCompact = (colName === "basic" || colName === "clean" || colName === "hide" || colName === "badge");
     if (shouldBeCompact) {
       newTh.innerText = shortText;
       newTh.classList.add("col-compact");
-      const cells = document.querySelectorAll(`.col-${colName}`);
-      cells.forEach(cell => cell.classList.add("col-compact"));
+      document.querySelectorAll(`.col-${colName}`).forEach(cell => cell.classList.add("col-compact"));
     }
   });
 }
@@ -318,11 +242,7 @@ function updateAllCategorySummaries() {
 function applyErrorFilter() {
   const rows = document.querySelectorAll("#urlTable tbody tr:not(.category)");
   rows.forEach(row => {
-    if (currentErrorOnly) {
-      row.style.display = row._hasError ? "" : "none";
-    } else {
-      row.style.display = "";
-    }
+    row.style.display = (currentErrorOnly && !row._hasError) ? "none" : "";
   });
 }
 
@@ -353,14 +273,10 @@ function computeAndDisplaySummary() {
 
   function cmp(prodOk, testOk, externalOk) {
     if (!hasExternal) {
-      if (testOk >= prodOk) {
-        if (testOk === prodOk) return "✅ TEST = PRODUCTION";
-        return "🏆 TEST better than PRODUCTION";
-      } else {
-        return "⚠️ TEST worse than PRODUCTION";
-      }
+      if (testOk >= prodOk) return (testOk === prodOk) ? "✅ TEST = PRODUCTION" : "🏆 TEST better than PRODUCTION";
+      return "⚠️ TEST worse than PRODUCTION";
     }
-    let mainText = "", subText = "";
+    let mainText = "";
     if (testOk >= prodOk && testOk >= externalOk) {
       if (testOk === prodOk && testOk === externalOk) mainText = "✅ TEST equal to others";
       else if (testOk > prodOk && testOk > externalOk) mainText = "🏆 TEST best";
@@ -370,7 +286,7 @@ function computeAndDisplaySummary() {
     } else if (testOk < prodOk && testOk < externalOk) mainText = "❌ TEST worse than both";
     else mainText = "⚠️ TEST improvable";
     let colorClass = mainText.includes("✅") || mainText.includes("🏆") ? "green" : (mainText.includes("❌") ? "red" : "orange");
-    return `<div class="comparison ${colorClass}"><span class="main-line">${mainText}</span>${subText ? `<span class="sub-line">${subText}</span>` : ''}</div>`;
+    return `<div class="comparison ${colorClass}"><span class="main-line">${mainText}</span></div>`;
   }
 
   const summaryHtml = `
@@ -393,7 +309,7 @@ function computeAndDisplaySummary() {
       ${cmp(modeStats.hideContext.prodOk, modeStats.hideContext.testOk, modeStats.hideContext.externalOk)}
     </div>
     <div class="summary-block">
-      <h4>🌍 Global (all modes)</h4>
+      <h4>🌍 Global</h4>
       <div class="stat-number">${modeStats.basic.total + modeStats.cleanUrls.total + modeStats.hideContext.total} routes</div>
       <div class="stat-detail">✅ PRODUCTION OK: ${modeStats.basic.prodOk + modeStats.cleanUrls.prodOk + modeStats.hideContext.prodOk}</div>
       <div class="stat-detail">✅ TEST OK: ${modeStats.basic.testOk + modeStats.cleanUrls.testOk + modeStats.hideContext.testOk}</div>
@@ -403,7 +319,7 @@ function computeAndDisplaySummary() {
   document.getElementById("summaryPanel").innerHTML = summaryHtml;
 }
 
-async function buildTable(groups, prodBase, testBase, alias, hasExternal) {
+async function buildTable(groups, prodBase, testBase, alias, hasExternal, externalFullBase) {
   const tbody = document.querySelector("#urlTable tbody");
   const thead = document.getElementById("tableHeader");
   tbody.innerHTML = "";
@@ -413,9 +329,9 @@ async function buildTable(groups, prodBase, testBase, alias, hasExternal) {
     <th data-col="prod">PRODUCTION</th>
     <th data-col="test">TEST</th>
     ${hasExternal ? '<th data-col="external">EXTERNAL</th>' : '<th data-col="external" style="display:none;">EXTERNAL</th>'}
-    <th data-col="basic" style="text-align:center;">basic</th>
-    <th data-col="clean" style="text-align:center;">clean</th>
-    <th data-col="hide" style="text-align:center;">hide</th>
+    <th data-col="basic">basic</th>
+    <th data-col="clean">clean</th>
+    <th data-col="hide">hide</th>
     <th data-col="badge">pkpCheckUrls</th>
   </tr>`;
 
@@ -434,9 +350,7 @@ async function buildTable(groups, prodBase, testBase, alias, hasExternal) {
     const colCount = hasExternal ? 8 : 7;
     for (let i = 0; i < colCount; i++) {
       const td = document.createElement("td");
-      if (i === 0) {
-        td.innerHTML = `<span class="collapse-indicator">›</span> <strong>${group.name}</strong>`;
-      }
+      if (i === 0) td.innerHTML = `<span class="collapse-indicator">›</span> <strong>${group.name}</strong>`;
       catRow.appendChild(td);
     }
     tbody.appendChild(catRow);
@@ -445,78 +359,61 @@ async function buildTable(groups, prodBase, testBase, alias, hasExternal) {
     catRow.addEventListener("click", (e) => {
       if (e.target.tagName === 'A') return;
       const isCollapsed = catRow.classList.contains("collapsed");
-      groupRows.forEach(row => {
-        row.style.display = isCollapsed ? "" : "none";
-      });
+      groupRows.forEach(row => { row.style.display = isCollapsed ? "" : "none"; });
       catRow.classList.toggle("collapsed");
     });
 
     for (let ep of group.endpoints) {
-      const isHttpTest = (ep.path === "http://");
-      let prodUrl = isHttpTest ? prodBase.replace(/^https:/, 'http:') : prodBase + ep.path;
-      let testUrl = isHttpTest ? testBase.replace(/^https:/, 'http:') : testBase + ep.path;
-      let externalUrl = hasExternal ? getExternalUrl(ep.path, ep.pathTemplate, ep.modes, alias) : null;
+      const pathTemplate = ep.pathTemplate;
+      const isHttpTest = (pathTemplate === "http://");
+      // Build PROD url
+      let prodPath = replaceAlias(pathTemplate, alias);
+      let prodUrl = isHttpTest ? prodBase.replace(/^https:/, 'http:') : prodBase + prodPath;
+      // Build TEST url
+      let testPath = replaceAlias(pathTemplate, alias);
+      let testUrl = isHttpTest ? testBase.replace(/^https:/, 'http:') : testBase + testPath;
+      // Build EXTERNAL url
+      let externalUrl = null;
+      let externalDisplayPath = null;
+      if (hasExternal && externalFullBase) {
+        let extPath = replaceAlias(pathTemplate, externalContext);
+        externalUrl = isHttpTest ? externalFullBase.replace(/^https:/, 'http:') : externalFullBase + extPath;
+        externalDisplayPath = extPath;
+      }
 
       const tr = document.createElement("tr");
       const tdDesc = document.createElement("td");
       tdDesc.textContent = ep.desc;
       tr.appendChild(tdDesc);
 
-      const tdProd = document.createElement("td");
-      tdProd.className = `url-cell col-prod`;
-      tdProd.innerHTML = '<span class="status-loading">⏳</span>';
-      tr.appendChild(tdProd);
-
-      const tdTest = document.createElement("td");
-      tdTest.className = `url-cell col-test`;
-      tdTest.innerHTML = '<span class="status-loading">⏳</span>';
-      tr.appendChild(tdTest);
-
-      const tdExternal = document.createElement("td");
-      tdExternal.className = `url-cell col-external`;
-      if (hasExternal) {
-        tdExternal.innerHTML = '<span class="status-loading">⏳</span>';
-      } else {
-        tdExternal.innerHTML = '<span class="status-bg bg-error">-</span>';
-        tdExternal.style.display = "none";
-      }
+      const tdProd = document.createElement("td"); tdProd.className = "url-cell col-prod"; tdProd.innerHTML = '<span class="status-loading">⏳</span>'; tr.appendChild(tdProd);
+      const tdTest = document.createElement("td"); tdTest.className = "url-cell col-test"; tdTest.innerHTML = '<span class="status-loading">⏳</span>'; tr.appendChild(tdTest);
+      const tdExternal = document.createElement("td"); tdExternal.className = "url-cell col-external";
+      if (hasExternal && externalUrl) tdExternal.innerHTML = '<span class="status-loading">⏳</span>';
+      else { tdExternal.innerHTML = '<span class="status-bg bg-error">-</span>'; tdExternal.style.display = "none"; }
       tr.appendChild(tdExternal);
 
-      const tdBasic = document.createElement("td");
-      tdBasic.className = "mode-check col-basic";
-      tdBasic.textContent = ep.modes.includes("basic") ? "✓" : "";
-      tr.appendChild(tdBasic);
-
-      const tdClean = document.createElement("td");
-      tdClean.className = "mode-check col-clean";
-      tdClean.textContent = ep.modes.includes("cleanUrls") ? "✓" : "";
-      tr.appendChild(tdClean);
-
-      const tdHide = document.createElement("td");
-      tdHide.className = "mode-check col-hide";
-      tdHide.textContent = ep.modes.includes("hideContext") ? "✓" : "";
-      tr.appendChild(tdHide);
-
-      const tdBadge = document.createElement("td");
-      tdBadge.className = "col-badge";
-      const badgeSpan = document.createElement("span");
-      badgeSpan.className = `badge ${ep.tested ? "yes" : "no"}`;
-      badgeSpan.textContent = ep.tested ? "YES" : "NO";
-      tdBadge.appendChild(badgeSpan);
-      tr.appendChild(tdBadge);
+      const tdBasic = document.createElement("td"); tdBasic.className = "mode-check col-basic"; tdBasic.textContent = ep.modes.includes("basic") ? "✓" : ""; tr.appendChild(tdBasic);
+      const tdClean = document.createElement("td"); tdClean.className = "mode-check col-clean"; tdClean.textContent = ep.modes.includes("cleanUrls") ? "✓" : ""; tr.appendChild(tdClean);
+      const tdHide = document.createElement("td"); tdHide.className = "mode-check col-hide"; tdHide.textContent = ep.modes.includes("hideContext") ? "✓" : ""; tr.appendChild(tdHide);
+      const tdBadge = document.createElement("td"); tdBadge.className = "col-badge";
+      const badgeSpan = document.createElement("span"); badgeSpan.className = `badge ${ep.tested ? "yes" : "no"}`; badgeSpan.textContent = ep.tested ? "YES" : "NO"; tdBadge.appendChild(badgeSpan); tr.appendChild(tdBadge);
 
       tbody.appendChild(tr);
       groupRows.push(tr);
       tr._modes = ep.modes;
 
-      const isRootUrl = (ep.path === "" || ep.path === "http://");
-      const displayPath = isRootUrl ? null : ep.path;
+      const isRootUrl = (pathTemplate === "" || pathTemplate === "http://");
+      const displayPathProd = isRootUrl ? null : replaceAlias(pathTemplate, alias);
+      const displayPathTest = isRootUrl ? null : replaceAlias(pathTemplate, alias);
+      const displayPathExt = isRootUrl ? null : externalDisplayPath;
+
       const promises = [
-        testAndRenderCell(tdProd, prodUrl, isRootUrl, false, displayPath),
-        testAndRenderCell(tdTest, testUrl, isRootUrl, false, displayPath)
+        testAndRenderCell(tdProd, prodUrl, isRootUrl, false, displayPathProd),
+        testAndRenderCell(tdTest, testUrl, isRootUrl, false, displayPathTest)
       ];
       if (hasExternal && externalUrl) {
-        promises.push(testAndRenderCell(tdExternal, externalUrl, isRootUrl, true, displayPath));
+        promises.push(testAndRenderCell(tdExternal, externalUrl, isRootUrl, true, displayPathExt));
       } else {
         promises.push(Promise.resolve({ status: 0, isError: false }));
       }
@@ -555,28 +452,22 @@ async function runAllTests() {
   const errorDiv = document.getElementById("externalError");
   errorDiv.innerHTML = "";
   let hasExternal = false;
+  let externalFullBase = null;
 
   if (rawExternalBase !== "") {
     const normalized = normalizeExternalBase(rawExternalBase);
     if (normalized === null) {
       errorDiv.innerHTML = "❌ Error: External base must be without protocol (e.g., domain.com)";
-      hasExternal = false;
-      externalBaseUrl = "";
-      externalContext = "";
     } else if (context === "") {
       errorDiv.innerHTML = "❌ Error: If you add an external base, you must provide a context.";
-      hasExternal = false;
-      externalBaseUrl = "";
-      externalContext = "";
     } else {
       externalBaseUrl = normalized;
       externalContext = context;
       hasExternal = true;
+      externalFullBase = getFullExternalBase();
       const fullUrl = "https://" + externalBaseUrl;
-      let domain = "";
       try {
-        const urlObj = new URL(fullUrl);
-        domain = urlObj.hostname;
+        const domain = new URL(fullUrl).hostname;
         await registerExternalDomain(domain);
       } catch(e) { errorDiv.innerHTML = "❌ External domain error"; hasExternal = false; }
     }
@@ -596,44 +487,33 @@ async function runAllTests() {
   const currentUrl = `${window.location.pathname}?${urlParams.toString()}`;
   const copyBtn = document.getElementById("copyUrlBtn");
   copyBtn.onclick = () => {
-    navigator.clipboard.writeText(window.location.origin + currentUrl).then(() => {
-      alert("URL copied to clipboard!");
-    }).catch(() => alert("Failed to copy URL"));
+    navigator.clipboard.writeText(window.location.origin + currentUrl).then(() => alert("URL copied to clipboard!")).catch(() => alert("Failed to copy URL"));
   };
 
   document.getElementById("progressMsg").innerText = "Running tests...";
-  const resolvedGroups = resolveEndpoints(endpointGroups, alias);
-  await buildTable(resolvedGroups, prodBase, testBase, alias, hasExternal);
+  const resolvedGroups = endpointGroups; // no transformation needed
+  await buildTable(resolvedGroups, prodBase, testBase, alias, hasExternal, externalFullBase);
 }
 
 function resetExternalToDemo() {
   document.getElementById("externalBaseUrl").value = "ojs33.testdrive.publicknowledgeproject.org";
   document.getElementById("externalContext").value = "testdrive-journal";
   document.getElementById("externalError").innerHTML = "";
-  // Do not auto-run tests
+  // No auto-run
 }
 
 function populateSelectAndStart() {
   const select = document.getElementById("journalSelect");
-  select.addEventListener("change", () => {
-    updateProdTestUrls();
-    runAllTests();
-  });
+  select.addEventListener("change", () => { updateProdTestUrls(); runAllTests(); });
   document.getElementById("runTestsBtn").addEventListener("click", () => runAllTests());
   document.getElementById("resetExternalBtn").addEventListener("click", () => resetExternalToDemo());
   const errorBtn = document.getElementById("errorToggleBtn");
   errorBtn.addEventListener("click", () => {
     currentErrorOnly = !currentErrorOnly;
-    if (currentErrorOnly) {
-      errorBtn.classList.add("active");
-      errorBtn.innerHTML = "✔️ Show all rows";
-    } else {
-      errorBtn.classList.remove("active");
-      errorBtn.innerHTML = "❗ Show errors only";
-    }
+    errorBtn.classList.toggle("active");
+    errorBtn.innerHTML = currentErrorOnly ? "✔️ Show all rows" : "❗ Show errors only";
     applyErrorFilter();
   });
-  // Load endpoints then CSV
   loadEndpointsFromJSON().then(() => loadJournalsFromCSV());
 }
 
