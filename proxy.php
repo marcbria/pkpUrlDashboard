@@ -1,7 +1,8 @@
 <?php
 /**
  * proxy.php - CORS-free URL status checker with dynamic domain whitelist
- * Timeout of 10 seconds to avoid false positives.
+ * Timeout of 15 seconds to avoid false positives.
+ * Uses HEAD request first, then GET with Range to detect 404 pages.
  */
 session_start();
 
@@ -59,7 +60,7 @@ if (!$allowed) {
     exit;
 }
 
-// Optional delay (in microseconds) - deshabilitado por defecto
+// Optional delay (in microseconds)
 if (isset($_GET['delay']) && is_numeric($_GET['delay'])) {
     $delay = intval($_GET['delay']);
     if ($delay > 0 && $delay <= 10000000) {
@@ -67,95 +68,88 @@ if (isset($_GET['delay']) && is_numeric($_GET['delay'])) {
     }
 }
 
+$timeout = 15;
+$userAgent = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:109.0) Gecko/20100101 Firefox/115.0';
+
 /**
- * Obtiene el código de estado HTTP y el contenido de la respuesta para una URL.
- * Realiza una petición GET para obtener el cuerpo y permite detectar errores 404.
+ * Realiza una petición HTTP con método configurable y opción de rango.
  */
-function getBody($url) {
+function fetchUrl($url, $method = 'HEAD', $range = null, $timeout = 15) {
     $ch = curl_init();
-    curl_setopt_array($ch, [
+    $options = [
         CURLOPT_URL => $url,
         CURLOPT_RETURNTRANSFER => true,
         CURLOPT_FOLLOWLOCATION => true,
         CURLOPT_MAXREDIRS => 10,
-        CURLOPT_TIMEOUT => 10,
-        CURLOPT_USERAGENT => 'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:109.0) Gecko/20100101 Firefox/115.0',
+        CURLOPT_TIMEOUT => $timeout,
+        CURLOPT_USERAGENT => $GLOBALS['userAgent'],
+        CURLOPT_SSL_VERIFYPEER => false,
+        CURLOPT_SSL_VERIFYHOST => false,
         CURLOPT_HTTPHEADER => [
             'Accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
             'Accept-Language: es-ES,es;q=0.8,en-US;q=0.5,en;q=0.3',
             'Accept-Encoding: gzip, deflate, br',
-            'Connection: keep-alive',
-            'Upgrade-Insecure-Requests: 1',
-        ],
-        CURLOPT_SSL_VERIFYPEER => false,
-        CURLOPT_SSL_VERIFYHOST => false
-    ]);
-    
+            'Connection: keep-alive'
+        ]
+    ];
+    if ($method === 'HEAD') {
+        $options[CURLOPT_NOBODY] = true;
+        $options[CURLOPT_CUSTOMREQUEST] = 'HEAD';
+    } else {
+        $options[CURLOPT_NOBODY] = false;
+        $options[CURLOPT_CUSTOMREQUEST] = 'GET';
+        if ($range) {
+            $options[CURLOPT_HTTPHEADER][] = "Range: bytes=$range";
+        }
+    }
+    curl_setopt_array($ch, $options);
     $response = curl_exec($ch);
     $info = curl_getinfo($ch);
     $error = curl_error($ch);
     curl_close($ch);
-    
-    if ($error) return ['status' => 0, 'body' => ''];
-    return ['status' => $info['http_code'], 'body' => $response];
+    return ['response' => $response, 'info' => $info, 'error' => $error];
 }
 
-$result = getBody($url);
-$statusCode = $result['status'];
-$finalUrl = $url; // URL final tras redirecciones
-$body = $result['body'];
+// 1. Hacemos HEAD para obtener código y URL final rápidamente
+$head = fetchUrl($url, 'HEAD', null, $timeout);
+$statusCode = $head['error'] ? 0 : $head['info']['http_code'];
+$finalUrl = $head['error'] ? $url : $head['info']['url'];
 
-if ($statusCode >= 200 && $statusCode < 300) {
-    $lowerBody = strtolower($body);
-    
-    // Patrones de error 404 a buscar en el contenido
-    $notFoundPatterns = [
-        '404 not found',
-        '404 page not found',
-        'not found',
-        'page not found',
-        'the requested url was not found on this server',
-        'the requested page was not found',
-        'the page you requested was not found',
-        'the page you requested could not be found',
-        'the requested resource was not found',
-        'we couldn\'t find the page you requested',
-        'the content you requested could not be found',
-        'cannot find the requested page',
-        'no page exists',
-        'no se encontró la página',
-        'página no encontrada',
-        '<title>404',
-        '<title>page not found',
-        'error 404',
-        'not found</title>',
-        'pkp_structure',
-        'the requested page does not exist',
-        'invalid request',
-        'the page you are looking for might have been removed',
-        'the page you are looking for cannot be found'
-    ];
-    
-    $isNotFound = false;
-    foreach ($notFoundPatterns as $pattern) {
-        if (strpos($lowerBody, $pattern) !== false) {
-            $isNotFound = true;
-            break;
+// 2. Si el código es 200, hacemos GET con rango para ver si es una página de error 404
+if ($statusCode >= 200 && $statusCode < 300 && !$head['error']) {
+    $get = fetchUrl($url, 'GET', '0-5000', $timeout);
+    if (!$get['error'] && $get['info']['http_code'] == 200) {
+        $body = $get['response'];
+        $lowerBody = strtolower($body);
+        
+        // Patrones de error 404 muy específicos (incluye el de la demo PKP)
+        $patterns = [
+            '404 not found',
+            'not found</title>',
+            '<title>404 not found</title>',
+            '<title>page not found</title>',
+            'the requested url was not found on this server',
+            'the page you requested was not found',
+            '<!doctype html public "-//ietf//dtd html 2.0//en">',  // Patrón exacto de la demo
+            'http/1.1 404 not found',
+            'status 404'
+        ];
+        $is404 = false;
+        foreach ($patterns as $pattern) {
+            if (strpos($lowerBody, $pattern) !== false) {
+                $is404 = true;
+                break;
+            }
         }
-    }
-    
-    // Si el contenido es muy corto y parece un error
-    if (!$isNotFound && strlen($body) < 200 && preg_match('/404|not found|error/i', $body)) {
-        $isNotFound = true;
-    }
-    
-    // Si el título contiene palabras clave de error
-    if (!$isNotFound && preg_match('/<title[^>]*>.*?(404|not found|page not found).*?<\/title>/i', $body)) {
-        $isNotFound = true;
-    }
-    
-    if ($isNotFound) {
-        $statusCode = 404;
+        
+        // Si el contenido es muy corto y contiene "404" o "not found"
+        if (!$is404 && strlen($body) < 500 && preg_match('/404|not found/i', $body)) {
+            $is404 = true;
+        }
+        
+        if ($is404) {
+            $statusCode = 404;
+        }
     }
 }
 
@@ -164,5 +158,5 @@ echo json_encode([
     'url' => $url,
     'status' => $statusCode,
     'finalUrl' => $finalUrl,
-    'error' => null
+    'error' => $head['error'] ?: null
 ]);
