@@ -1,5 +1,5 @@
 // ============================================================
-// main.js - Entry point and event handlers (simplified)
+// main.js - Entry point and event handlers (simplified, no stop button)
 // ============================================================
 
 import { journals, loadJournalsFromCSV, loadEndpointsFromJSON, updateProdTestUrls, endpointGroups } from './dataLoader.js';
@@ -148,14 +148,6 @@ function populateSelectAndStart() {
   document.getElementById("runTestsBtn").addEventListener("click", () => runAllTests());
   document.getElementById("runTestsBtnBottom").addEventListener("click", () => runAllTests());
   document.getElementById("resetExternalBtn").addEventListener("click", () => resetExternalToDemo());
-  
-  const stopBtn = document.getElementById("stopTestsBtn");
-  if (stopBtn) {
-    stopBtn.addEventListener("click", () => {
-      const url = getCurrentStateUrl();
-      window.location.href = url;
-    });
-  }
   
   const errorBtn = document.getElementById("errorToggleBtn");
   errorBtn.addEventListener("click", () => {
