@@ -1,5 +1,5 @@
 // ============================================================
-// main.js - Entry point and event handlers (stop without auto-restart)
+// main.js - Entry point and event handlers (stop reloads page)
 // ============================================================
 
 import { journals, loadJournalsFromCSV, loadEndpointsFromJSON, updateProdTestUrls, endpointGroups } from './dataLoader.js';
@@ -8,8 +8,9 @@ import { setExternalState, setCurrentErrorOnly, updateActiveFilters, buildTable,
 
 let externalBaseUrl = "";
 let externalContext = "";
-let currentAbortController = null;
+let isRunning = false;
 
+// Update both run buttons (RUN / STOP state)
 function setRunButtonsState(running) {
   const runBtnTop = document.getElementById("runTestsBtn");
   const runBtnBottom = document.getElementById("runTestsBtnBottom");
@@ -73,24 +74,18 @@ function getCurrentStateUrl() {
 }
 
 async function runAllTests() {
-  // If a test run is already in progress, stop it and reset button state
-  if (currentAbortController) {
-    currentAbortController.abort();
-    // Wait a bit for the abort to propagate (optional)
-    await new Promise(resolve => setTimeout(resolve, 50));
-    // Reset button state to idle (no auto-start)
-    setRunButtonsState(false);
-    currentAbortController = null;
-    document.getElementById("progressMsg").innerText = "Tests stopped. Click RUN ALL TESTS to start.";
+  // If tests are already running, reload the page to stop them
+  if (isRunning) {
+    const url = getCurrentStateUrl();
+    window.location.href = url;
     return;
   }
 
-  // No test running: start a new test run
-  currentAbortController = new AbortController();
-  const signal = currentAbortController.signal;
-
+  // Start a new test run
+  isRunning = true;
   setRunButtonsState(true);
 
+  // Show UI elements (table, toolbar, summary)
   document.getElementById("toolbar").style.display = "flex";
   document.getElementById("tableWrapper").style.display = "block";
   document.getElementById("summaryPanel").style.display = "flex";
@@ -99,7 +94,7 @@ async function runAllTests() {
   const alias = document.getElementById("journalSelect").value;
   const journal = journals.find(j => j.alias === alias);
   if (!journal) {
-    currentAbortController = null;
+    isRunning = false;
     setRunButtonsState(false);
     return;
   }
@@ -147,20 +142,15 @@ async function runAllTests() {
 
   document.getElementById("progressMsg").innerText = "Running tests...";
   try {
-    await buildTable(endpointGroups, prodBase, testBase, alias, hasExternal, externalFullBase, signal);
+    await buildTable(endpointGroups, prodBase, testBase, alias, hasExternal, externalFullBase, null);
   } catch (err) {
-    if (err.name === 'AbortError') {
-      console.log('Tests aborted by user');
-      document.getElementById("progressMsg").innerText = "Tests stopped by user.";
-    } else {
-      console.error(err);
-      document.getElementById("progressMsg").innerText = "Error running tests.";
-    }
+    console.error(err);
+    document.getElementById("progressMsg").innerText = "Error running tests.";
   } finally {
-    // Only reset button state if this run wasn't aborted in the meantime
-    if (currentAbortController && currentAbortController.signal === signal) {
+    // Only restore button state if we are still on the same page (not reloaded)
+    if (!window.location.href.includes('reload')) {
+      isRunning = false;
       setRunButtonsState(false);
-      currentAbortController = null;
     }
   }
 }
