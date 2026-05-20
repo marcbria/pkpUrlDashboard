@@ -58,6 +58,7 @@ export function getBgClass(status) {
   if (status >= 200 && status < 300) return "bg-success";
   if (status >= 300 && status < 400) return "bg-redirect";
   if (status === 401 || status === 403) return "bg-unauthorized";
+  if (status === 460) return "bg-filtered";   // Nuevo: filtrado
   return "bg-error";
 }
 
@@ -85,7 +86,13 @@ export async function testAndRenderCell(cell, url, isRoot = false, useDelay = fa
       } catch(e) { displayUrl = url; }
     }
   }
-  const icon = (status >= 200 && status < 300) ? "" : (status >= 300 && status < 400) ? "🔄" : (status === 401 || status === 403) ? "🔒" : "❌";
+  let icon = "";
+  if (status >= 200 && status < 300) icon = "";
+  else if (status >= 300 && status < 400) icon = "🔄";
+  else if (status === 401 || status === 403) icon = "🔒";
+  else if (status === 460) icon = "🫗";
+  else icon = "❌";
+  
   cell.innerHTML = `<span class="status-bg ${bgClass}">${icon} <a href="${url}" target="_blank">${displayUrl}</a></span>`;
-  return { status, isError: (status >= 400 && status !== 403 && status !== 401) || status === 0 };
+  return { status, isError: (status >= 400 && status !== 403 && status !== 401 && status !== 460) || status === 0 };
 }

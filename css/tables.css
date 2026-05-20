@@ -86,6 +86,10 @@ td {
 .bg-unauthorized {
   background-color: #ffe5b4;
 }
+.bg-filtered {
+  background-color: #b8e1fc;  /* Azul claro pastel */
+  border-left: 3px solid #1e88e5;
+}
 
 .mode-check {
   text-align: center;

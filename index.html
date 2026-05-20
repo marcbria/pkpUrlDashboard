@@ -90,10 +90,19 @@
     <button id="runTestsBtnBottom" class="run-tests-btn">▶️ RUN ALL TESTS</button>
   </div>
 
-  <footer>Tests via <code>proxy.php</code> (same directory). Click column header to compact/expand.<br>
-  Journals from <code>configs/journals.csv</code>. Format: <code>alias,prod_url,test_url</code>.<br>
-  External domain is optional; if filled, must be without https:// and include a context.<br>
-  🐙 <a href="https://github.com/marcbria/pkpUrlDashboard" target="_blank">Documentation & source code on GitHub</a></footer>
+  <footer>
+    Tests via <code>proxy.php</code> (same directory). Click column header to compact/expand.<br>
+    Journals from <code>configs/journals.csv</code>. Format: <code>alias,prod_url,test_url</code>.<br>
+    External domain is optional; if filled, must be without https:// and include a context.<br>
+    <div style="margin-top: 0.8rem; font-size: 0.75rem; display: flex; flex-wrap: wrap; gap: 1rem; justify-content: center;">
+      <span><span style="background:#d4edda; padding:2px 6px;">✅</span> Éxito (2xx)</span>
+      <span><span style="background:#fff3cd; padding:2px 6px;">🔄</span> Redirección (3xx)</span>
+      <span><span style="background:#ffe5b4; padding:2px 6px;">🔒</span> No autorizado (401/403)</span>
+      <span><span style="background:#b8e1fc; padding:2px 6px;">🫗</span> Filtrado / Protección (Anubis, etc.)</span>
+      <span><span style="background:#f8d7da; padding:2px 6px;">❌</span> Error (4xx, 5xx, timeout)</span>
+    </div>
+    🐙 <a href="https://github.com/marcbria/pkpUrlDashboard" target="_blank">Documentation & source code on GitHub</a>
+  </footer>
 </div>
 </body>
 </html>
