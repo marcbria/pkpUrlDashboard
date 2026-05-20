@@ -47,9 +47,30 @@ function getCurrentFilterState() {
   };
 }
 
+// Build current URL with all parameters (journal, filters, external)
+function getCurrentStateUrl() {
+  const alias = document.getElementById("journalSelect").value;
+  const filterState = getCurrentFilterState();
+  const externalBase = document.getElementById("externalBaseUrl").value.trim();
+  const externalCtx = document.getElementById("externalContext").value.trim();
+  const urlParams = new URLSearchParams();
+  urlParams.set('journal', alias);
+  urlParams.set('basic', filterState.basic ? '1' : '0');
+  urlParams.set('cleanUrls', filterState.cleanUrls ? '1' : '0');
+  urlParams.set('hideContext', filterState.hideContext ? '1' : '0');
+  if (externalBase && externalCtx) {
+    urlParams.set('external_base_url', normalizeExternalBase(externalBase) || externalBase);
+    urlParams.set('external_context', externalCtx);
+  }
+  return `${window.location.pathname}?${urlParams.toString()}`;
+}
+
 async function runAllTests() {
+  // If there is already an ongoing or aborted test run, reload the page to reset everything
   if (currentAbortController) {
-    currentAbortController.abort();
+    const url = getCurrentStateUrl();
+    window.location.href = url;
+    return;
   }
 
   currentAbortController = new AbortController();
@@ -104,32 +125,11 @@ async function runAllTests() {
 
   setExternalState(externalBaseUrl, externalContext);
 
-  const filterState = getCurrentFilterState();
-  const urlParams = new URLSearchParams();
-  urlParams.set('journal', alias);
-  urlParams.set('basic', filterState.basic ? '1' : '0');
-  urlParams.set('cleanUrls', filterState.cleanUrls ? '1' : '0');
-  urlParams.set('hideContext', filterState.hideContext ? '1' : '0');
-  if (hasExternal) {
-    urlParams.set('external_base_url', externalBaseUrl);
-    urlParams.set('external_context', externalContext);
-  }
-  const currentUrl = `${window.location.pathname}?${urlParams.toString()}`;
-  
+  // Update copy button URL (but without reloading)
+  const currentUrl = getCurrentStateUrl();
   const copyBtn = document.getElementById("copyUrlBtn");
   copyBtn.onclick = () => {
-    const freshFilterState = getCurrentFilterState();
-    const freshUrlParams = new URLSearchParams();
-    freshUrlParams.set('journal', document.getElementById("journalSelect").value);
-    freshUrlParams.set('basic', freshFilterState.basic ? '1' : '0');
-    freshUrlParams.set('cleanUrls', freshFilterState.cleanUrls ? '1' : '0');
-    freshUrlParams.set('hideContext', freshFilterState.hideContext ? '1' : '0');
-    if (document.getElementById("externalBaseUrl").value.trim() !== "" && document.getElementById("externalContext").value.trim() !== "") {
-      freshUrlParams.set('external_base_url', externalBaseUrl);
-      freshUrlParams.set('external_context', externalContext);
-    }
-    const freshUrl = `${window.location.pathname}?${freshUrlParams.toString()}`;
-    navigator.clipboard.writeText(window.location.origin + freshUrl)
+    navigator.clipboard.writeText(window.location.origin + currentUrl)
       .then(() => alert("URL copied to clipboard!"))
       .catch(() => alert("Failed to copy URL"));
   };
