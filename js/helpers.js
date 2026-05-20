@@ -90,7 +90,7 @@ export async function testAndRenderCell(cell, url, isRoot = false, useDelay = fa
   if (status >= 200 && status < 300) icon = "";
   else if (status >= 300 && status < 400) icon = "🔄";
   else if (status === 401 || status === 403) icon = "🔒";
-  else if (status === 460) icon = "🛡️";   // Shield: filtered / protected
+  else if (status === 460) icon = "🛡️";
   else icon = "❌";
   
   cell.innerHTML = `<span class="status-bg ${bgClass}">${icon} <a href="${url}" target="_blank">${displayUrl}</a></span>`;

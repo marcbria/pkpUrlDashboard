@@ -313,7 +313,7 @@ export async function buildTable(groups, prodBase, testBase, alias, hasExternal,
       }).catch(err => {
         if (err.name === 'AbortError') {
           console.log('Test aborted');
-          return;
+          throw err;
         }
         throw err;
       });
@@ -328,7 +328,7 @@ export async function buildTable(groups, prodBase, testBase, alias, hasExternal,
     if (err.name === 'AbortError') {
       console.log('All tests aborted');
       document.getElementById("progressMsg").innerText = "Tests stopped by user.";
-      return;
+      throw err;
     }
     throw err;
   }
