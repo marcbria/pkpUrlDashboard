@@ -1,5 +1,5 @@
 // ============================================================
-// dataLoader.js - Load journals and endpoints
+// dataLoader.js - Load journals and endpoints (with abort signal)
 // ============================================================
 
 import { CSV_FILE, ENDPOINTS_FILE } from './constants.js';
@@ -8,9 +8,10 @@ import { getTestBase } from './helpers.js';
 export let journals = [];
 export let endpointGroups = [];
 
-export async function loadJournalsFromCSV() {
+export async function loadJournalsFromCSV(signal = null) {
   try {
-    const response = await fetch(CSV_FILE);
+    const response = await fetch(CSV_FILE, { signal });
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
     const csvText = await response.text();
     const lines = csvText.trim().split(/\r?\n/);
     for (let i = 1; i < lines.length; i++) {
@@ -49,6 +50,7 @@ export async function loadJournalsFromCSV() {
     console.error('Failed to load journals.csv', err);
     document.getElementById('progressMsg').innerText = 'Error loading journals.csv';
     document.getElementById('journalSelect').innerHTML = '<option>Error loading CSV</option>';
+    throw err;
   }
 }
 
@@ -63,13 +65,15 @@ export function updateProdTestUrls() {
   document.getElementById("prodTestUrls").innerHTML = `<strong>journalContext:</strong> ${alias} | <strong>PRODUCTION</strong>: ${prodLink} | <strong>TEST</strong>: ${testLink}`;
 }
 
-export async function loadEndpointsFromJSON() {
+export async function loadEndpointsFromJSON(signal = null) {
   try {
-    const response = await fetch(ENDPOINTS_FILE);
+    const response = await fetch(ENDPOINTS_FILE, { signal });
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
     const data = await response.json();
     endpointGroups = data.groups;
   } catch (err) {
     console.error('Failed to load endpoints.json', err);
     endpointGroups = [];
+    throw err;
   }
 }

@@ -104,9 +104,9 @@ footer {
   100% { opacity: 1; }
 }
 
-/* Botón STOP */
+/* Botón STOP - siempre rojo */
 .stop-btn {
-  background: #6c757d;
+  background: #dc3545;
   border: none;
   color: white;
   padding: 6px 18px;
@@ -116,10 +116,7 @@ footer {
   border-radius: 30px;
   transition: background 0.2s;
 }
-.stop-btn.active {
-  background: #dc3545;
-}
-.stop-btn.active:hover {
+.stop-btn:hover {
   background: #c82333;
 }
 .stop-btn:disabled {
@@ -127,6 +124,7 @@ footer {
   cursor: not-allowed;
   opacity: 0.6;
 }
+
 .run-tests-btn.disabled {
   background: #6c757d;
   cursor: not-allowed;
