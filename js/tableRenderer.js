@@ -227,7 +227,8 @@ export async function buildTable(groups, prodBase, testBase, alias, hasExternal,
   }
 
   let totalTests = 0;
-  const allPromises = [];
+  // Use an array to collect all individual test promises
+  const testPromises = [];
 
   for (let group of groups) {
     const catRow = document.createElement("tr");
@@ -292,38 +293,41 @@ export async function buildTable(groups, prodBase, testBase, alias, hasExternal,
       const displayPathTest = isRootUrl ? null : replaceAlias(pathTemplate, alias);
       const displayPathExt = isRootUrl ? null : externalDisplayPath;
 
-      const promises = [
-        testAndRenderCell(tdProd, prodUrl, isRootUrl, false, displayPathProd, signal),
-        testAndRenderCell(tdTest, testUrl, isRootUrl, false, displayPathTest, signal)
-      ];
+      // Create the three test promises and store them individually
+      const promiseProd = testAndRenderCell(tdProd, prodUrl, isRootUrl, false, displayPathProd, signal);
+      const promiseTest = testAndRenderCell(tdTest, testUrl, isRootUrl, false, displayPathTest, signal);
+      let promiseExt = Promise.resolve({ status: 0, isError: false });
       if (hasExternal && externalUrl) {
-        promises.push(testAndRenderCell(tdExternal, externalUrl, isRootUrl, true, displayPathExt, signal));
-      } else {
-        promises.push(Promise.resolve({ status: 0, isError: false }));
+        promiseExt = testAndRenderCell(tdExternal, externalUrl, isRootUrl, true, displayPathExt, signal);
       }
 
-      const promise = Promise.all(promises).then(([prod, test, external]) => {
-        tr._prodStatus = prod.status;
-        tr._testStatus = test.status;
-        tr._externalStatus = external.status;
-        tr._hasError = prod.isError || test.isError || (hasExternal && external.isError);
-        totalTests++;
-        document.getElementById("progressMsg").innerText = `Tested ${totalTests} / ... endpoints`;
-        updateCategorySummary(catRow, groupRows);
-      }).catch(err => {
-        if (err.name === 'AbortError') {
-          console.log('Test aborted');
+      // Wait for all three and update the row
+      const rowPromise = Promise.all([promiseProd, promiseTest, promiseExt])
+        .then(([prod, test, external]) => {
+          tr._prodStatus = prod.status;
+          tr._testStatus = test.status;
+          tr._externalStatus = external.status;
+          tr._hasError = prod.isError || test.isError || (hasExternal && external.isError);
+          totalTests++;
+          document.getElementById("progressMsg").innerText = `Tested ${totalTests} / ... endpoints`;
+          updateCategorySummary(catRow, groupRows);
+        })
+        .catch(err => {
+          // If any promise is aborted, we need to abort the whole test run
+          if (err.name === 'AbortError') {
+            console.log('Test aborted, rethrowing');
+            throw err;
+          }
           throw err;
-        }
-        throw err;
-      });
-      allPromises.push(promise);
+        });
+      testPromises.push(rowPromise);
     }
     catRow._groupRows = groupRows;
   }
 
+  // Wait for all row tests to complete; if any throws AbortError, propagate
   try {
-    await Promise.all(allPromises);
+    await Promise.all(testPromises);
   } catch (err) {
     if (err.name === 'AbortError') {
       console.log('All tests aborted');
