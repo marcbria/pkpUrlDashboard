@@ -68,13 +68,18 @@ export async function testAndRenderCell(cell, url, isRoot = false, useDelay = fa
     statusData = await checkUrlViaProxy(url, useDelay, signal);
   } catch (err) {
     if (err.name === 'AbortError') {
-      cell.innerHTML = `<span class="status-bg bg-error">⏹️ Stopped</span>`;
+      cell.innerHTML = `<span class="status-bg bg-error" style="background-color:#f8d7da;">⏹️ Stopped</span>`;
       throw err;
     }
     statusData = { status: 0 };
   }
   const { status } = statusData;
-  const bgClass = getBgClass(status);
+  let bgClass = getBgClass(status);
+  let inlineStyle = '';
+  // Force blue background for filtered status (460) as fallback
+  if (status === 460) {
+    inlineStyle = 'background-color: #b8e1fc; border-left: 3px solid #1e88e5;';
+  }
   let displayUrl = displayPath;
   if (!displayUrl) {
     if (isRoot) displayUrl = url;
@@ -93,6 +98,6 @@ export async function testAndRenderCell(cell, url, isRoot = false, useDelay = fa
   else if (status === 460) icon = "🛡️";
   else icon = "❌";
   
-  cell.innerHTML = `<span class="status-bg ${bgClass}">${icon} <a href="${url}" target="_blank">${displayUrl}</a></span>`;
+  cell.innerHTML = `<span class="status-bg ${bgClass}" style="${inlineStyle}">${icon} <a href="${url}" target="_blank">${displayUrl}</a></span>`;
   return { status, isError: (status >= 400 && status !== 403 && status !== 401 && status !== 460) || status === 0 };
 }
