@@ -1,5 +1,5 @@
 // ============================================================
-// main.js - Entry point and event handlers (with abort, no reload)
+// main.js - Entry point and event handlers (with abort and button state)
 // ============================================================
 
 import { journals, loadJournalsFromCSV, loadEndpointsFromJSON, updateProdTestUrls, endpointGroups } from './dataLoader.js';
@@ -9,6 +9,29 @@ import { setExternalState, setCurrentErrorOnly, updateActiveFilters, buildTable,
 let externalBaseUrl = "";
 let externalContext = "";
 let currentAbortController = null;
+
+// Helper to update the appearance and text of both run buttons
+function setRunButtonsState(running) {
+  const runBtnTop = document.getElementById("runTestsBtn");
+  const runBtnBottom = document.getElementById("runTestsBtnBottom");
+  if (!runBtnTop || !runBtnBottom) return;
+
+  if (running) {
+    // Running state: red background, text "RESTART TESTS"
+    runBtnTop.textContent = "RESTART TESTS";
+    runBtnBottom.textContent = "RESTART TESTS";
+    runBtnTop.style.backgroundColor = "#dc3545";
+    runBtnBottom.style.backgroundColor = "#dc3545";
+    runBtnTop.style.border = "none";
+    runBtnBottom.style.border = "none";
+  } else {
+    // Idle state: original blue, text "RUN ALL TESTS"
+    runBtnTop.textContent = "RUN ALL TESTS";
+    runBtnBottom.textContent = "RUN ALL TESTS";
+    runBtnTop.style.backgroundColor = "#2c6e9e";
+    runBtnBottom.style.backgroundColor = "#2c6e9e";
+  }
+}
 
 // Read mode parameters from URL and apply to checkboxes
 function applyModeParamsFromUrl() {
@@ -29,7 +52,6 @@ function applyModeParamsFromUrl() {
   else hideContextCheckbox.checked = false;
 }
 
-// Get current filter state from checkboxes
 function getCurrentFilterState() {
   return {
     basic: document.getElementById('filterBasic').checked,
@@ -38,7 +60,6 @@ function getCurrentFilterState() {
   };
 }
 
-// Build current URL with all parameters (for copy button, not for reload)
 function getCurrentStateUrl() {
   const alias = document.getElementById("journalSelect").value;
   const filterState = getCurrentFilterState();
@@ -58,16 +79,21 @@ function getCurrentStateUrl() {
 }
 
 async function runAllTests() {
-  // If there is already a running test, abort it
+  // If there is already a running test, abort it and restart
   if (currentAbortController) {
     currentAbortController.abort();
-    // Wait a tiny bit for the abort to propagate (avoid race conditions)
+    // Wait a tiny bit for abort to propagate
     await new Promise(resolve => setTimeout(resolve, 50));
+    // The abort will eventually reset the button state in the finally block
+    // But we also want to start a new run immediately after abort.
   }
 
   // Create a new AbortController for this test run
   currentAbortController = new AbortController();
   const signal = currentAbortController.signal;
+
+  // Set button state to "running" (red, "RESTART TESTS")
+  setRunButtonsState(true);
 
   // Show UI elements
   document.getElementById("toolbar").style.display = "flex";
@@ -79,6 +105,7 @@ async function runAllTests() {
   const journal = journals.find(j => j.alias === alias);
   if (!journal) {
     currentAbortController = null;
+    setRunButtonsState(false);
     return;
   }
   const prodBase = journal.prodUrl;
@@ -136,6 +163,8 @@ async function runAllTests() {
       document.getElementById("progressMsg").innerText = "Error running tests.";
     }
   } finally {
+    // Reset button state to idle
+    setRunButtonsState(false);
     // Clear the controller only if it's the same one (avoid clearing a newer one)
     if (currentAbortController && currentAbortController.signal === signal) {
       currentAbortController = null;
@@ -154,7 +183,8 @@ async function initialize() {
   await loadJournalsFromCSV();
   applyModeParamsFromUrl();
   document.getElementById("progressMsg").innerText = "Ready. Click RUN ALL TESTS to start.";
-  // NO automatic test run
+  // Ensure buttons are in idle state (default)
+  setRunButtonsState(false);
 }
 
 function populateSelectAndStart() {
