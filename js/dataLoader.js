@@ -3,7 +3,7 @@
 // ============================================================
 
 import { CSV_FILE, ENDPOINTS_FILE } from './constants.js';
-import { getTestBase, replaceAlias } from './helpers.js';
+import { getTestBase } from './helpers.js';
 
 export let journals = [];
 export let endpointGroups = [];

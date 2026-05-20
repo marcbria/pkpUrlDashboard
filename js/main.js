@@ -10,7 +10,7 @@ let externalBaseUrl = "";
 let externalContext = "";
 let currentAbortController = null;
 
-// Función para leer parámetros de modos de la URL y aplicar a los checkboxes
+// Read mode parameters from URL and apply to checkboxes
 function applyModeParamsFromUrl() {
   const urlParams = new URLSearchParams(window.location.search);
   const basicParam = urlParams.get('basic');
@@ -38,7 +38,7 @@ function applyModeParamsFromUrl() {
   }
 }
 
-// Obtener estado actual de los checkboxes
+// Get current filter state from checkboxes
 function getCurrentFilterState() {
   return {
     basic: document.getElementById('filterBasic').checked,
@@ -48,16 +48,13 @@ function getCurrentFilterState() {
 }
 
 async function runAllTests() {
-  // Si ya hay una prueba en curso, la cancelamos antes de iniciar una nueva
   if (currentAbortController) {
     currentAbortController.abort();
   }
 
-  // Crear un nuevo AbortController
   currentAbortController = new AbortController();
   const signal = currentAbortController.signal;
 
-  // Cambiar estado de los botones
   const runBtn = document.getElementById("runTestsBtn");
   const stopBtn = document.getElementById("stopTestsBtn");
   runBtn.disabled = true;
@@ -65,7 +62,6 @@ async function runAllTests() {
   runBtn.classList.add("disabled");
   stopBtn.classList.add("active");
 
-  // Mostrar elementos UI
   document.getElementById("toolbar").style.display = "flex";
   document.getElementById("tableWrapper").style.display = "block";
   document.getElementById("summaryPanel").style.display = "flex";
@@ -108,7 +104,6 @@ async function runAllTests() {
 
   setExternalState(externalBaseUrl, externalContext);
 
-  // Guardar estado en la URL incluyendo los modos activos
   const filterState = getCurrentFilterState();
   const urlParams = new URLSearchParams();
   urlParams.set('journal', alias);
@@ -151,7 +146,6 @@ async function runAllTests() {
       document.getElementById("progressMsg").innerText = "Error running tests.";
     }
   } finally {
-    // Restaurar estado de los botones al finalizar
     runBtn.disabled = false;
     stopBtn.disabled = true;
     runBtn.classList.remove("disabled");
