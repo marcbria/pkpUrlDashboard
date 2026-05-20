@@ -1,7 +1,7 @@
 <?php
 /**
  * proxy.php - CORS-free URL status checker with dynamic domain whitelist
- * Timeout 15s. Detecta Soft 404 y protecciones como Anubis (devuelve 403).
+ * Timeout 15s. Detecta Soft 404 (404) y protecciones como Anubis (460).
  */
 session_start();
 
@@ -18,7 +18,6 @@ if (!isset($_SESSION['allowedDomains'])) {
     $_SESSION['allowedDomains'] = $allowedDomains;
 }
 
-// Handle dynamic domain addition
 if ($_SERVER['REQUEST_METHOD'] === 'HEAD' && isset($_GET['add_domain'])) {
     $newDomain = trim($_GET['add_domain']);
     if (!empty($newDomain) && !in_array($newDomain, $_SESSION['allowedDomains'])) {
@@ -126,15 +125,15 @@ if ($statusCode >= 200 && $statusCode < 300 && !$head['error']) {
         $bodySample = substr($body, 0, 5000);
         $lower = strtolower($bodySample);
 
-        // Detección de sistemas de protección (Anubis, Cloudflare, etc.)
+        // Detección de filtros como Anubis → código 460 (Filtered)
         if (strpos($lower, 'validating your request') !== false ||
             strpos($lower, 'anubis') !== false ||
             strpos($lower, 'within.website') !== false ||
             strpos($lower, 'please wait while we verify') !== false ||
             strpos($lower, 'checking your browser') !== false) {
-            $statusCode = 403; // Acceso bloqueado por filtro → color naranja en dashboard
+            $statusCode = 460; // Código personalizado para indicar filtrado
         }
-        // Detección de soft 404 (solo si no es un filtro)
+        // Detección de soft 404 (solo si no es filtro)
         elseif ($statusCode == 200) {
             $patterns = [
                 '404 not found',
