@@ -2,7 +2,7 @@
 /**
  * proxy.php - CORS-free URL status checker with dynamic domain whitelist
  * Timeout of 15 seconds to avoid false positives.
- * Uses HEAD request first, then GET with Range to detect 404 pages.
+ * Fixed: Force decompression of gzip responses for accurate 404 detection.
  */
 session_start();
 
@@ -73,6 +73,7 @@ $userAgent = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:109.0) Gecko/20100101
 
 /**
  * Realiza una petición HTTP con método configurable y opción de rango.
+ * Ahora fuerza la descompresión de la respuesta.
  */
 function fetchUrl($url, $method = 'HEAD', $range = null, $timeout = 15) {
     $ch = curl_init();
@@ -85,11 +86,12 @@ function fetchUrl($url, $method = 'HEAD', $range = null, $timeout = 15) {
         CURLOPT_USERAGENT => $GLOBALS['userAgent'],
         CURLOPT_SSL_VERIFYPEER => false,
         CURLOPT_SSL_VERIFYHOST => false,
+        CURLOPT_ENCODING => '',   // Fuerza la descompresión automática
         CURLOPT_HTTPHEADER => [
             'Accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
             'Accept-Language: es-ES,es;q=0.8,en-US;q=0.5,en;q=0.3',
-            'Accept-Encoding: gzip, deflate, br',
             'Connection: keep-alive'
+            // 'Accept-Encoding' es manejado por CURLOPT_ENCODING, no debe incluirse aquí
         ]
     ];
     if ($method === 'HEAD') {
@@ -110,19 +112,20 @@ function fetchUrl($url, $method = 'HEAD', $range = null, $timeout = 15) {
     return ['response' => $response, 'info' => $info, 'error' => $error];
 }
 
-// 1. Hacemos HEAD para obtener código y URL final rápidamente
+// 1. HEAD para obtener código y URL final
 $head = fetchUrl($url, 'HEAD', null, $timeout);
 $statusCode = $head['error'] ? 0 : $head['info']['http_code'];
 $finalUrl = $head['error'] ? $url : $head['info']['url'];
 
-// 2. Si el código es 200, hacemos GET con rango para ver si es una página de error 404
+// 2. Si el código es 200, hacemos GET para verificar si es una página de error 404
 if ($statusCode >= 200 && $statusCode < 300 && !$head['error']) {
-    $get = fetchUrl($url, 'GET', '0-5000', $timeout);
+    // Usamos un rango mayor para asegurar capturar el título
+    $get = fetchUrl($url, 'GET', '0-10000', $timeout);
     if (!$get['error'] && $get['info']['http_code'] == 200) {
         $body = $get['response'];
         $lowerBody = strtolower($body);
         
-        // Patrones de error 404 muy específicos (incluye el de la demo PKP)
+        // Patrones de error 404 en el contenido (ya descomprimido)
         $patterns = [
             '404 not found',
             'not found</title>',
@@ -130,9 +133,11 @@ if ($statusCode >= 200 && $statusCode < 300 && !$head['error']) {
             '<title>page not found</title>',
             'the requested url was not found on this server',
             'the page you requested was not found',
-            '<!doctype html public "-//ietf//dtd html 2.0//en">',  // Patrón exacto de la demo
+            '<!doctype html public "-//ietf//dtd html 2.0//en">',  // Patrón de la demo PKP
             'http/1.1 404 not found',
-            'status 404'
+            'status 404',
+            'we couldn\'t find the page',
+            'the page you are looking for might have been removed'
         ];
         $is404 = false;
         foreach ($patterns as $pattern) {
@@ -142,14 +147,17 @@ if ($statusCode >= 200 && $statusCode < 300 && !$head['error']) {
             }
         }
         
-        // Si el contenido es muy corto y contiene "404" o "not found"
-        if (!$is404 && strlen($body) < 500 && preg_match('/404|not found/i', $body)) {
+        // Si el contenido es muy corto y contiene indicios de error 404
+        if (!$is404 && strlen($body) < 1000 && preg_match('/404|not found/i', $body)) {
             $is404 = true;
         }
         
         if ($is404) {
             $statusCode = 404;
         }
+        
+        // Depuración (opcional): descomentar para ver el contenido en el log de PHP
+        // error_log("Proxy debug for $url: status=$statusCode, body_preview=" . substr($body, 0, 300));
     }
 }
 
