@@ -9,6 +9,7 @@ import { setExternalState, setCurrentErrorOnly, updateActiveFilters, buildTable,
 let externalBaseUrl = "";
 let externalContext = "";
 
+// Función para leer parámetros de modos de la URL y aplicar a los checkboxes
 function applyModeParamsFromUrl() {
   const urlParams = new URLSearchParams(window.location.search);
   const basicParam = urlParams.get('basic');
@@ -22,7 +23,7 @@ function applyModeParamsFromUrl() {
   if (basicParam !== null) {
     basicCheckbox.checked = basicParam === '1';
   } else {
-    basicCheckbox.checked = true;
+    basicCheckbox.checked = true; // por defecto
   }
   if (cleanUrlsParam !== null) {
     cleanUrlsCheckbox.checked = cleanUrlsParam === '1';
@@ -36,7 +37,17 @@ function applyModeParamsFromUrl() {
   }
 }
 
+// Obtener estado actual de los checkboxes
+function getCurrentFilterState() {
+  return {
+    basic: document.getElementById('filterBasic').checked,
+    cleanUrls: document.getElementById('filterCleanUrls').checked,
+    hideContext: document.getElementById('filterHideContext').checked
+  };
+}
+
 async function runAllTests() {
+  // Mostrar elementos UI
   document.getElementById("toolbar").style.display = "flex";
   document.getElementById("tableWrapper").style.display = "block";
   document.getElementById("summaryPanel").style.display = "flex";
@@ -80,11 +91,12 @@ async function runAllTests() {
   setExternalState(externalBaseUrl, externalContext);
 
   // Guardar estado en la URL incluyendo los modos activos
+  const filterState = getCurrentFilterState();
   const urlParams = new URLSearchParams();
   urlParams.set('journal', alias);
-  urlParams.set('basic', activeModes.basic ? '1' : '0');
-  urlParams.set('cleanUrls', activeModes.cleanUrls ? '1' : '0');
-  urlParams.set('hideContext', activeModes.hideContext ? '1' : '0');
+  urlParams.set('basic', filterState.basic ? '1' : '0');
+  urlParams.set('cleanUrls', filterState.cleanUrls ? '1' : '0');
+  urlParams.set('hideContext', filterState.hideContext ? '1' : '0');
   if (hasExternal) {
     urlParams.set('external_base_url', externalBaseUrl);
     urlParams.set('external_context', externalContext);
@@ -106,9 +118,12 @@ function resetExternalToDemo() {
 }
 
 async function initialize() {
+  // Cargar datos necesarios
   await loadEndpointsFromJSON();
   await loadJournalsFromCSV();
+  // Aplicar modos desde la URL (o por defecto)
   applyModeParamsFromUrl();
+  // Ejecutar tests automáticamente
   await runAllTests();
 }
 
@@ -128,6 +143,7 @@ function populateSelectAndStart() {
     errorBtn.innerHTML = newValue ? "✔️ Show all rows" : "❗ Show errors only";
     applyErrorFilter();
   });
+  // Iniciar la carga automática
   initialize();
 }
 
