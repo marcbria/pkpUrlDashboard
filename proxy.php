@@ -1,7 +1,7 @@
 <?php
 /**
  * proxy.php - CORS-free URL status checker with dynamic domain whitelist
- * Timeout reducido a 5 segundos para mayor velocidad.
+ * Timeout of 10 seconds to avoid false possitives.
  */
 session_start();
 
@@ -67,7 +67,7 @@ if (isset($_GET['delay']) && is_numeric($_GET['delay'])) {
     }
 }
 
-$timeout = 5; // Reducido de 10 a 5 segundos
+$timeout = 10; 
 $ch = curl_init();
 curl_setopt_array($ch, [
     CURLOPT_URL => $url,

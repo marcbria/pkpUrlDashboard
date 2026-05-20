@@ -1,5 +1,5 @@
 // ============================================================
-// tableRenderer.js - Table rendering and UI logic
+// tableRenderer.js - Table rendering and UI logic (sin columna pkpCheckUrl)
 // ============================================================
 
 import { replaceAlias, testAndRenderCell } from './helpers.js';
@@ -45,7 +45,6 @@ export function setupColumnToggles() {
       case "basic": shortText = "B"; break;
       case "clean": shortText = "C"; break;
       case "hide": shortText = "H"; break;
-      case "badge": shortText = "p"; break;
       default: shortText = "?";
     }
     newTh.addEventListener("click", (e) => {
@@ -64,7 +63,7 @@ export function setupColumnToggles() {
         newTh.classList.add("col-compact");
       }
     });
-    const shouldBeCompact = (colName === "basic" || colName === "clean" || colName === "hide" || colName === "badge");
+    const shouldBeCompact = (colName === "basic" || colName === "clean" || colName === "hide");
     if (shouldBeCompact) {
       newTh.innerText = shortText;
       newTh.classList.add("col-compact");
@@ -202,22 +201,12 @@ export function computeAndDisplaySummary(hasExternal) {
 }
 
 export async function buildTable(groups, prodBase, testBase, alias, hasExternal, externalFullBase) {
-  // Get table body element with robust fallback
   const table = document.getElementById("urlTable");
-  if (!table) {
-    console.error("Table element #urlTable not found");
-    return;
-  }
+  if (!table) return;
   const tbody = table.querySelector("tbody");
-  if (!tbody) {
-    console.error("Table body not found inside #urlTable");
-    return;
-  }
+  if (!tbody) return;
   const thead = document.getElementById("tableHeader");
-  if (!thead) {
-    console.error("Table header #tableHeader not found");
-    return;
-  }
+  if (!thead) return;
 
   tbody.innerHTML = "";
 
@@ -229,7 +218,6 @@ export async function buildTable(groups, prodBase, testBase, alias, hasExternal,
     <th data-col="basic">basic</th>
     <th data-col="clean">clean</th>
     <th data-col="hide">hide</th>
-    <th data-col="badge">pkpCheckUrls</th>
   </tr>`;
 
   setupColumnToggles();
@@ -244,7 +232,7 @@ export async function buildTable(groups, prodBase, testBase, alias, hasExternal,
   for (let group of groups) {
     const catRow = document.createElement("tr");
     catRow.className = "category";
-    const colCount = hasExternal ? 8 : 7;
+    const colCount = hasExternal ? 7 : 6; // sin la columna badge
     for (let i = 0; i < colCount; i++) {
       const td = document.createElement("td");
       if (i === 0) td.innerHTML = `<span class="collapse-indicator">›</span> <strong>${group.name}</strong>`;
@@ -294,8 +282,6 @@ export async function buildTable(groups, prodBase, testBase, alias, hasExternal,
       const tdBasic = document.createElement("td"); tdBasic.className = "mode-check col-basic"; tdBasic.textContent = ep.modes.includes("basic") ? "✓" : ""; tr.appendChild(tdBasic);
       const tdClean = document.createElement("td"); tdClean.className = "mode-check col-clean"; tdClean.textContent = ep.modes.includes("cleanUrls") ? "✓" : ""; tr.appendChild(tdClean);
       const tdHide = document.createElement("td"); tdHide.className = "mode-check col-hide"; tdHide.textContent = ep.modes.includes("hideContext") ? "✓" : ""; tr.appendChild(tdHide);
-      const tdBadge = document.createElement("td"); tdBadge.className = "col-badge";
-      const badgeSpan = document.createElement("span"); badgeSpan.className = `badge ${ep.tested ? "yes" : "no"}`; badgeSpan.textContent = ep.tested ? "YES" : "NO"; tdBadge.appendChild(badgeSpan); tr.appendChild(tdBadge);
 
       tbody.appendChild(tr);
       groupRows.push(tr);
