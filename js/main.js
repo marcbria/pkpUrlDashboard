@@ -1,5 +1,5 @@
 // ============================================================
-// main.js - Entry point and event handlers (stop reloads page)
+// main.js - Entry point and event handlers (simplified, with STOP reload)
 // ============================================================
 
 import { journals, loadJournalsFromCSV, loadEndpointsFromJSON, updateProdTestUrls, endpointGroups } from './dataLoader.js';
@@ -8,26 +8,6 @@ import { setExternalState, setCurrentErrorOnly, updateActiveFilters, buildTable,
 
 let externalBaseUrl = "";
 let externalContext = "";
-let isRunning = false;
-
-// Update both run buttons (RUN / STOP state)
-function setRunButtonsState(running) {
-  const runBtnTop = document.getElementById("runTestsBtn");
-  const runBtnBottom = document.getElementById("runTestsBtnBottom");
-  if (!runBtnTop || !runBtnBottom) return;
-
-  if (running) {
-    runBtnTop.textContent = "STOP";
-    runBtnBottom.textContent = "STOP";
-    runBtnTop.style.backgroundColor = "#dc3545";
-    runBtnBottom.style.backgroundColor = "#dc3545";
-  } else {
-    runBtnTop.textContent = "RUN ALL TESTS";
-    runBtnBottom.textContent = "RUN ALL TESTS";
-    runBtnTop.style.backgroundColor = "#2c6e9e";
-    runBtnBottom.style.backgroundColor = "#2c6e9e";
-  }
-}
 
 function applyModeParamsFromUrl() {
   const urlParams = new URLSearchParams(window.location.search);
@@ -74,18 +54,7 @@ function getCurrentStateUrl() {
 }
 
 async function runAllTests() {
-  // If tests are already running, reload the page to stop them
-  if (isRunning) {
-    const url = getCurrentStateUrl();
-    window.location.href = url;
-    return;
-  }
-
-  // Start a new test run
-  isRunning = true;
-  setRunButtonsState(true);
-
-  // Show UI elements (table, toolbar, summary)
+  // Show UI elements
   document.getElementById("toolbar").style.display = "flex";
   document.getElementById("tableWrapper").style.display = "block";
   document.getElementById("summaryPanel").style.display = "flex";
@@ -93,11 +62,7 @@ async function runAllTests() {
   updateActiveFilters();
   const alias = document.getElementById("journalSelect").value;
   const journal = journals.find(j => j.alias === alias);
-  if (!journal) {
-    isRunning = false;
-    setRunButtonsState(false);
-    return;
-  }
+  if (!journal) return;
   const prodBase = journal.prodUrl;
   const testBase = getTestBase(alias, prodBase, journal.testUrl);
   const rawExternalBase = document.getElementById("externalBaseUrl").value.trim();
@@ -146,13 +111,12 @@ async function runAllTests() {
   } catch (err) {
     console.error(err);
     document.getElementById("progressMsg").innerText = "Error running tests.";
-  } finally {
-    // Only restore button state if we are still on the same page (not reloaded)
-    if (!window.location.href.includes('reload')) {
-      isRunning = false;
-      setRunButtonsState(false);
-    }
   }
+}
+
+function stopAndReload() {
+  const url = getCurrentStateUrl();
+  window.location.href = url;
 }
 
 function resetExternalToDemo() {
@@ -166,7 +130,7 @@ async function initialize() {
   await loadJournalsFromCSV();
   applyModeParamsFromUrl();
   document.getElementById("progressMsg").innerText = "Ready. Click RUN ALL TESTS to start.";
-  setRunButtonsState(false);
+  // No automatic test run
 }
 
 function populateSelectAndStart() {
@@ -177,6 +141,11 @@ function populateSelectAndStart() {
   document.getElementById("runTestsBtn").addEventListener("click", () => runAllTests());
   document.getElementById("runTestsBtnBottom").addEventListener("click", () => runAllTests());
   document.getElementById("resetExternalBtn").addEventListener("click", () => resetExternalToDemo());
+  
+  const stopBtn = document.getElementById("stopTestsBtn");
+  if (stopBtn) {
+    stopBtn.addEventListener("click", () => stopAndReload());
+  }
   
   const errorBtn = document.getElementById("errorToggleBtn");
   errorBtn.addEventListener("click", () => {
