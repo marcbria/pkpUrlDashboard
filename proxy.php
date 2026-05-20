@@ -1,7 +1,7 @@
 <?php
 /**
  * proxy.php - CORS-free URL status checker with dynamic domain whitelist
- * Timeout 15s. Detecta Soft 404 (404) y protecciones como Anubis (460).
+ * Timeout 15s. Detects soft 404 (404) and protections like Anubis (460).
  */
 session_start();
 
@@ -18,6 +18,7 @@ if (!isset($_SESSION['allowedDomains'])) {
     $_SESSION['allowedDomains'] = $allowedDomains;
 }
 
+// Handle dynamic domain addition
 if ($_SERVER['REQUEST_METHOD'] === 'HEAD' && isset($_GET['add_domain'])) {
     $newDomain = trim($_GET['add_domain']);
     if (!empty($newDomain) && !in_array($newDomain, $_SESSION['allowedDomains'])) {
@@ -109,7 +110,7 @@ if ($statusCode >= 200 && $statusCode < 300 && !$head['error']) {
         $body = $get['body'];
         $headers = $get['headers'];
 
-        // Descompresión manual
+        // Manual decompression
         if (preg_match('/Content-Encoding:\s*(gzip|deflate)/i', $headers, $matches)) {
             $encoding = strtolower($matches[1]);
             if ($encoding === 'gzip') {
@@ -125,15 +126,15 @@ if ($statusCode >= 200 && $statusCode < 300 && !$head['error']) {
         $bodySample = substr($body, 0, 5000);
         $lower = strtolower($bodySample);
 
-        // Detección de filtros como Anubis → código 460 (Filtered)
+        // Detect filters like Anubis → status 460 (Filtered)
         if (strpos($lower, 'validating your request') !== false ||
             strpos($lower, 'anubis') !== false ||
             strpos($lower, 'within.website') !== false ||
             strpos($lower, 'please wait while we verify') !== false ||
             strpos($lower, 'checking your browser') !== false) {
-            $statusCode = 460; // Código personalizado para indicar filtrado
+            $statusCode = 460;
         }
-        // Detección de soft 404 (solo si no es filtro)
+        // Soft 404 detection (only if not filtered)
         elseif ($statusCode == 200) {
             $patterns = [
                 '404 not found',
