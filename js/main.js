@@ -9,8 +9,34 @@ import { setExternalState, setCurrentErrorOnly, updateActiveFilters, buildTable,
 let externalBaseUrl = "";
 let externalContext = "";
 
+function applyModeParamsFromUrl() {
+  const urlParams = new URLSearchParams(window.location.search);
+  const basicParam = urlParams.get('basic');
+  const cleanUrlsParam = urlParams.get('cleanUrls');
+  const hideContextParam = urlParams.get('hideContext');
+  
+  const basicCheckbox = document.getElementById('filterBasic');
+  const cleanUrlsCheckbox = document.getElementById('filterCleanUrls');
+  const hideContextCheckbox = document.getElementById('filterHideContext');
+  
+  if (basicParam !== null) {
+    basicCheckbox.checked = basicParam === '1';
+  } else {
+    basicCheckbox.checked = true;
+  }
+  if (cleanUrlsParam !== null) {
+    cleanUrlsCheckbox.checked = cleanUrlsParam === '1';
+  } else {
+    cleanUrlsCheckbox.checked = false;
+  }
+  if (hideContextParam !== null) {
+    hideContextCheckbox.checked = hideContextParam === '1';
+  } else {
+    hideContextCheckbox.checked = false;
+  }
+}
+
 async function runAllTests() {
-  // Show UI elements
   document.getElementById("toolbar").style.display = "flex";
   document.getElementById("tableWrapper").style.display = "block";
   document.getElementById("summaryPanel").style.display = "flex";
@@ -53,9 +79,12 @@ async function runAllTests() {
 
   setExternalState(externalBaseUrl, externalContext);
 
-  // Save state to URL
+  // Guardar estado en la URL incluyendo los modos activos
   const urlParams = new URLSearchParams();
   urlParams.set('journal', alias);
+  urlParams.set('basic', activeModes.basic ? '1' : '0');
+  urlParams.set('cleanUrls', activeModes.cleanUrls ? '1' : '0');
+  urlParams.set('hideContext', activeModes.hideContext ? '1' : '0');
   if (hasExternal) {
     urlParams.set('external_base_url', externalBaseUrl);
     urlParams.set('external_context', externalContext);
@@ -76,6 +105,13 @@ function resetExternalToDemo() {
   document.getElementById("externalError").innerHTML = "";
 }
 
+async function initialize() {
+  await loadEndpointsFromJSON();
+  await loadJournalsFromCSV();
+  applyModeParamsFromUrl();
+  await runAllTests();
+}
+
 function populateSelectAndStart() {
   const select = document.getElementById("journalSelect");
   select.addEventListener("change", () => {
@@ -92,7 +128,7 @@ function populateSelectAndStart() {
     errorBtn.innerHTML = newValue ? "✔️ Show all rows" : "❗ Show errors only";
     applyErrorFilter();
   });
-  loadEndpointsFromJSON().then(() => loadJournalsFromCSV());
+  initialize();
 }
 
 populateSelectAndStart();
