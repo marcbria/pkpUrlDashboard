@@ -104,7 +104,7 @@ footer {
   100% { opacity: 1; }
 }
 
-/* Añadir al archivo css/components.css o crear uno nuevo */
+/* Botón STOP */
 .stop-btn {
   background: #6c757d;
   border: none;
