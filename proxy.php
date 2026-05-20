@@ -1,8 +1,7 @@
 <?php
 /**
  * proxy.php - CORS-free URL status checker with dynamic domain whitelist
- * Timeout of 15 seconds to avoid false positives.
- * Fixed: Force decompression of gzip responses for accurate 404 detection.
+ * Timeout 15s. Detecta Soft 404 y protecciones como Anubis (devuelve 403).
  */
 session_start();
 
@@ -29,7 +28,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'HEAD' && isset($_GET['add_domain'])) {
     exit;
 }
 
-// Main URL check
 if (!isset($_GET['url']) || empty($_GET['url'])) {
     http_response_code(400);
     header('Content-Type: application/json');
@@ -60,24 +58,16 @@ if (!$allowed) {
     exit;
 }
 
-// Optional delay (in microseconds)
 if (isset($_GET['delay']) && is_numeric($_GET['delay'])) {
-    $delay = intval($_GET['delay']);
-    if ($delay > 0 && $delay <= 10000000) {
-        usleep($delay);
-    }
+    usleep(min((int)$_GET['delay'], 10000000));
 }
 
 $timeout = 15;
 $userAgent = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:109.0) Gecko/20100101 Firefox/115.0';
 
-/**
- * Realiza una petición HTTP con método configurable y opción de rango.
- * Ahora fuerza la descompresión de la respuesta.
- */
-function fetchUrl($url, $method = 'HEAD', $range = null, $timeout = 15) {
+function fetchFull($url, $timeout) {
     $ch = curl_init();
-    $options = [
+    curl_setopt_array($ch, [
         CURLOPT_URL => $url,
         CURLOPT_RETURNTRANSFER => true,
         CURLOPT_FOLLOWLOCATION => true,
@@ -86,78 +76,92 @@ function fetchUrl($url, $method = 'HEAD', $range = null, $timeout = 15) {
         CURLOPT_USERAGENT => $GLOBALS['userAgent'],
         CURLOPT_SSL_VERIFYPEER => false,
         CURLOPT_SSL_VERIFYHOST => false,
-        CURLOPT_ENCODING => '',   // Fuerza la descompresión automática
+        CURLOPT_HEADER => true,
+        CURLOPT_ENCODING => '',
         CURLOPT_HTTPHEADER => [
             'Accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
             'Accept-Language: es-ES,es;q=0.8,en-US;q=0.5,en;q=0.3',
             'Connection: keep-alive'
-            // 'Accept-Encoding' es manejado por CURLOPT_ENCODING, no debe incluirse aquí
         ]
-    ];
-    if ($method === 'HEAD') {
-        $options[CURLOPT_NOBODY] = true;
-        $options[CURLOPT_CUSTOMREQUEST] = 'HEAD';
-    } else {
-        $options[CURLOPT_NOBODY] = false;
-        $options[CURLOPT_CUSTOMREQUEST] = 'GET';
-        if ($range) {
-            $options[CURLOPT_HTTPHEADER][] = "Range: bytes=$range";
-        }
-    }
-    curl_setopt_array($ch, $options);
+    ]);
     $response = curl_exec($ch);
     $info = curl_getinfo($ch);
     $error = curl_error($ch);
+    $headerSize = $info['header_size'];
+    $headers = substr($response, 0, $headerSize);
+    $body = substr($response, $headerSize);
     curl_close($ch);
-    return ['response' => $response, 'info' => $info, 'error' => $error];
+    return [
+        'status'  => $error ? 0 : $info['http_code'],
+        'finalUrl' => $error ? $url : $info['url'],
+        'headers' => $headers,
+        'body'    => $body,
+        'error'   => $error
+    ];
 }
 
-// 1. HEAD para obtener código y URL final
-$head = fetchUrl($url, 'HEAD', null, $timeout);
-$statusCode = $head['error'] ? 0 : $head['info']['http_code'];
-$finalUrl = $head['error'] ? $url : $head['info']['url'];
+$head = fetchFull($url, $timeout);
+$statusCode = $head['status'];
+$finalUrl = $head['finalUrl'];
 
-// 2. Si el código es 200, hacemos GET para verificar si es una página de error 404
 if ($statusCode >= 200 && $statusCode < 300 && !$head['error']) {
-    // Usamos un rango mayor para asegurar capturar el título
-    $get = fetchUrl($url, 'GET', '0-10000', $timeout);
-    if (!$get['error'] && $get['info']['http_code'] == 200) {
-        $body = $get['response'];
-        $lowerBody = strtolower($body);
-        
-        // Patrones de error 404 en el contenido (ya descomprimido)
-        $patterns = [
-            '404 not found',
-            'not found</title>',
-            '<title>404 not found</title>',
-            '<title>page not found</title>',
-            'the requested url was not found on this server',
-            'the page you requested was not found',
-            '<!doctype html public "-//ietf//dtd html 2.0//en">',  // Patrón de la demo PKP
-            'http/1.1 404 not found',
-            'status 404',
-            'we couldn\'t find the page',
-            'the page you are looking for might have been removed'
-        ];
-        $is404 = false;
-        foreach ($patterns as $pattern) {
-            if (strpos($lowerBody, $pattern) !== false) {
-                $is404 = true;
-                break;
+    $get = fetchFull($url, $timeout);
+    if ($get['status'] >= 200 && $get['status'] < 300) {
+        $body = $get['body'];
+        $headers = $get['headers'];
+
+        // Descompresión manual
+        if (preg_match('/Content-Encoding:\s*(gzip|deflate)/i', $headers, $matches)) {
+            $encoding = strtolower($matches[1]);
+            if ($encoding === 'gzip') {
+                $body = @gzdecode($body);
+            } elseif ($encoding === 'deflate') {
+                $body = @gzuncompress($body);
+            }
+            if ($body === false) {
+                $body = $get['body'];
             }
         }
-        
-        // Si el contenido es muy corto y contiene indicios de error 404
-        if (!$is404 && strlen($body) < 1000 && preg_match('/404|not found/i', $body)) {
-            $is404 = true;
+
+        $bodySample = substr($body, 0, 5000);
+        $lower = strtolower($bodySample);
+
+        // Detección de sistemas de protección (Anubis, Cloudflare, etc.)
+        if (strpos($lower, 'validating your request') !== false ||
+            strpos($lower, 'anubis') !== false ||
+            strpos($lower, 'within.website') !== false ||
+            strpos($lower, 'please wait while we verify') !== false ||
+            strpos($lower, 'checking your browser') !== false) {
+            $statusCode = 403; // Acceso bloqueado por filtro → color naranja en dashboard
         }
-        
-        if ($is404) {
-            $statusCode = 404;
+        // Detección de soft 404 (solo si no es un filtro)
+        elseif ($statusCode == 200) {
+            $patterns = [
+                '404 not found',
+                'not found</title>',
+                '<title>404 not found</title>',
+                '<title>page not found</title>',
+                'the requested url was not found on this server',
+                'the page you requested was not found',
+                '<!doctype html public "-//ietf//dtd html 2.0//en">',
+                'http/1.1 404 not found',
+                'status 404',
+                'we couldn\'t find the page'
+            ];
+            $is404 = false;
+            foreach ($patterns as $pattern) {
+                if (strpos($lower, $pattern) !== false) {
+                    $is404 = true;
+                    break;
+                }
+            }
+            if (!$is404 && strlen($body) < 1000 && preg_match('/404|not found/i', $body)) {
+                $is404 = true;
+            }
+            if ($is404) {
+                $statusCode = 404;
+            }
         }
-        
-        // Depuración (opcional): descomentar para ver el contenido en el log de PHP
-        // error_log("Proxy debug for $url: status=$statusCode, body_preview=" . substr($body, 0, 300));
     }
 }
 
