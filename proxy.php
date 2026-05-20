@@ -1,7 +1,7 @@
 <?php
 /**
  * proxy.php - CORS-free URL status checker with dynamic domain whitelist
- * Timeout 15s. Detects soft 404 (404) and protections like Anubis (460).
+ * Timeout 10s for faster failure.
  */
 session_start();
 
@@ -62,7 +62,7 @@ if (isset($_GET['delay']) && is_numeric($_GET['delay'])) {
     usleep(min((int)$_GET['delay'], 10000000));
 }
 
-$timeout = 15;
+$timeout = 10;  // Reduced from 15 to 10 seconds
 $userAgent = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:109.0) Gecko/20100101 Firefox/115.0';
 
 function fetchFull($url, $timeout) {

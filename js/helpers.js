@@ -1,5 +1,5 @@
 // ============================================================
-// helpers.js - Utility functions
+// helpers.js - Utility functions (with fetch timeout)
 // ============================================================
 
 import { PROXY_PATH, EXTERNAL_DELAY_US } from './constants.js';
@@ -39,18 +39,36 @@ export function replaceAlias(pathTemplate, alias) {
   return pathTemplate.replace(/{alias}/g, alias);
 }
 
+async function fetchWithTimeout(url, options, timeoutMs = 20000) {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const response = await fetch(url, { ...options, signal: controller.signal });
+    clearTimeout(timeoutId);
+    return response;
+  } catch (err) {
+    clearTimeout(timeoutId);
+    throw err;
+  }
+}
+
 export async function checkUrlViaProxy(url, useDelay = false, signal = null) {
   let proxyUrl = `${PROXY_PATH}?url=${encodeURIComponent(url)}`;
   if (useDelay) proxyUrl += `&delay=${EXTERNAL_DELAY_US}`;
   try {
-    const res = await fetch(proxyUrl, { signal });
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    const data = await res.json();
+    let response;
+    if (signal) {
+      response = await fetch(proxyUrl, { signal });
+    } else {
+      response = await fetchWithTimeout(proxyUrl, {}, 20000); // 20 seconds timeout
+    }
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    const data = await response.json();
     return { status: data.status };
   } catch (err) {
     if (err.name === 'AbortError') {
-      console.log('Fetch aborted:', url);
-      throw err;
+      console.log('Fetch aborted (timeout or manual):', url);
+      return { status: 0, aborted: true };
     }
     return { status: 0 };
   }
