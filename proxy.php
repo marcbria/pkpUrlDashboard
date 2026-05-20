@@ -1,7 +1,7 @@
 <?php
 /**
  * proxy.php - CORS-free URL status checker with dynamic domain whitelist
- * Timeout of 10 seconds to avoid false possitives.
+ * Timeout of 10 seconds to avoid false positives.
  */
 session_start();
 
@@ -69,14 +69,15 @@ if (isset($_GET['delay']) && is_numeric($_GET['delay'])) {
 
 $timeout = 10; 
 $ch = curl_init();
+
+// Configuración base
 curl_setopt_array($ch, [
     CURLOPT_URL => $url,
-    CURLOPT_NOBODY => true,
     CURLOPT_FOLLOWLOCATION => true,
     CURLOPT_MAXREDIRS => 10,
     CURLOPT_RETURNTRANSFER => true,
     CURLOPT_TIMEOUT => $timeout,
-    CURLOPT_HEADER => true,
+    CURLOPT_HEADER => true,          // Necesario para obtener el código de estado
     CURLOPT_SSL_VERIFYPEER => false,
     CURLOPT_SSL_VERIFYHOST => false,
     CURLOPT_USERAGENT => 'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:109.0) Gecko/20100101 Firefox/115.0',
@@ -89,9 +90,23 @@ curl_setopt_array($ch, [
     ],
 ]);
 
+// Primero, intentamos con GET (más fiable que HEAD)
+curl_setopt($ch, CURLOPT_CUSTOMREQUEST, 'GET');
+curl_setopt($ch, CURLOPT_NOBODY, false);    // No queremos solo el cuerpo, queremos la respuesta completa
+
 $response = curl_exec($ch);
 $info = curl_getinfo($ch);
 $error = curl_error($ch);
+
+// Si GET falla o da un código poco fiable (ej. 405 Method Not Allowed), reintentamos con HEAD
+if ($error || $info['http_code'] === 405 || $info['http_code'] === 0) {
+    curl_setopt($ch, CURLOPT_CUSTOMREQUEST, 'HEAD');
+    curl_setopt($ch, CURLOPT_NOBODY, true);
+    $response = curl_exec($ch);
+    $info = curl_getinfo($ch);
+    $error = curl_error($ch);
+}
+
 curl_close($ch);
 
 if ($error) {

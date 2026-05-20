@@ -3,7 +3,7 @@
     {
       "name": "🏠 Home & index",
       "endpoints": [
-        { "pathTemplate": "http://", "desc": "Root (HTTP)", "tested": false, "modes": [] },
+        { "pathTemplate": "http://", "desc": "Root (HTTP)", "tested": false, "modes": ["basic"] },
         { "pathTemplate": "", "desc": "Root (HTTPS)", "tested": true, "modes": ["cleanUrls", "hideContext"] },
         { "pathTemplate": "/index.php", "desc": "/index.php (basic)", "tested": true, "modes": ["basic"] },
         { "pathTemplate": "/index.php/index", "desc": "/index.php/index", "tested": true, "modes": ["basic"] },
