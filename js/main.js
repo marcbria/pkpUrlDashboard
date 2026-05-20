@@ -1,5 +1,5 @@
 // ============================================================
-// main.js - Entry point and event handlers (with fetch timeout)
+// main.js - Entry point and event handlers (data loading on start)
 // ============================================================
 
 import { journals, loadJournalsFromCSV, loadEndpointsFromJSON, updateProdTestUrls, endpointGroups } from './dataLoader.js';
@@ -8,7 +8,6 @@ import { setExternalState, setCurrentErrorOnly, updateActiveFilters, buildTable,
 
 let externalBaseUrl = "";
 let externalContext = "";
-let isInitialized = false;
 
 function applyModeParamsFromUrl() {
   const urlParams = new URLSearchParams(window.location.search);
@@ -55,17 +54,6 @@ function getCurrentStateUrl() {
 }
 
 async function runAllTests() {
-  // Wait for initialization if not ready (but show loading feedback)
-  if (!isInitialized) {
-    const progressMsg = document.getElementById("progressMsg");
-    progressMsg.innerText = "Loading data, please wait...";
-    // Wait for initialization to complete (polling)
-    while (!isInitialized) {
-      await new Promise(resolve => setTimeout(resolve, 100));
-    }
-    progressMsg.innerText = "Ready. Click RUN ALL TESTS to start.";
-  }
-
   // Show UI elements
   document.getElementById("toolbar").style.display = "flex";
   document.getElementById("tableWrapper").style.display = "block";
@@ -138,35 +126,35 @@ function resetExternalToDemo() {
 }
 
 async function initialize() {
+  const progressMsg = document.getElementById("progressMsg");
+  progressMsg.innerText = "Loading data...";
   try {
-    // Set a global timeout for data loading (10 seconds)
+    // Set a 10-second timeout for data loading
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 10000);
     
-    // Load endpoints and journals in parallel with timeout
-    const endpointsPromise = loadEndpointsFromJSON(controller.signal);
-    const journalsPromise = loadJournalsFromCSV(controller.signal);
-    
-    await Promise.all([endpointsPromise, journalsPromise]);
+    await Promise.all([
+      loadEndpointsFromJSON(controller.signal),
+      loadJournalsFromCSV(controller.signal)
+    ]);
     clearTimeout(timeoutId);
     
     applyModeParamsFromUrl();
-    document.getElementById("progressMsg").innerText = "Ready. Click RUN ALL TESTS to start.";
+    progressMsg.innerText = "Ready. Click RUN ALL TESTS to start.";
   } catch (err) {
     console.error("Initialization error:", err);
-    document.getElementById("progressMsg").innerText = "Error loading data. Please refresh.";
     if (err.name === 'AbortError') {
-      console.error("Data loading timed out after 10 seconds.");
+      progressMsg.innerText = "Data loading timed out (10s). Please refresh.";
+    } else {
+      progressMsg.innerText = "Error loading data. Please refresh.";
     }
-  } finally {
-    isInitialized = true;
   }
 }
 
 function populateSelectAndStart() {
   const select = document.getElementById("journalSelect");
   select.addEventListener("change", () => {
-    updateProdTestUrls();
+    if (journals.length > 0) updateProdTestUrls();
   });
   document.getElementById("runTestsBtn").addEventListener("click", () => runAllTests());
   document.getElementById("runTestsBtnBottom").addEventListener("click", () => runAllTests());
