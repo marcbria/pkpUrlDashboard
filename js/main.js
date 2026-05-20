@@ -1,5 +1,5 @@
 // ============================================================
-// main.js - Entry point and event handlers (simplified, no stop button)
+// main.js - Entry point and event handlers (with abort, no reload)
 // ============================================================
 
 import { journals, loadJournalsFromCSV, loadEndpointsFromJSON, updateProdTestUrls, endpointGroups } from './dataLoader.js';
@@ -8,8 +8,9 @@ import { setExternalState, setCurrentErrorOnly, updateActiveFilters, buildTable,
 
 let externalBaseUrl = "";
 let externalContext = "";
-let isRunning = false;
+let currentAbortController = null;
 
+// Read mode parameters from URL and apply to checkboxes
 function applyModeParamsFromUrl() {
   const urlParams = new URLSearchParams(window.location.search);
   const basicParam = urlParams.get('basic');
@@ -28,6 +29,7 @@ function applyModeParamsFromUrl() {
   else hideContextCheckbox.checked = false;
 }
 
+// Get current filter state from checkboxes
 function getCurrentFilterState() {
   return {
     basic: document.getElementById('filterBasic').checked,
@@ -36,6 +38,7 @@ function getCurrentFilterState() {
   };
 }
 
+// Build current URL with all parameters (for copy button, not for reload)
 function getCurrentStateUrl() {
   const alias = document.getElementById("journalSelect").value;
   const filterState = getCurrentFilterState();
@@ -55,14 +58,18 @@ function getCurrentStateUrl() {
 }
 
 async function runAllTests() {
-  if (isRunning) {
-    const url = getCurrentStateUrl();
-    window.location.href = url;
-    return;
+  // If there is already a running test, abort it
+  if (currentAbortController) {
+    currentAbortController.abort();
+    // Wait a tiny bit for the abort to propagate (avoid race conditions)
+    await new Promise(resolve => setTimeout(resolve, 50));
   }
 
-  isRunning = true;
+  // Create a new AbortController for this test run
+  currentAbortController = new AbortController();
+  const signal = currentAbortController.signal;
 
+  // Show UI elements
   document.getElementById("toolbar").style.display = "flex";
   document.getElementById("tableWrapper").style.display = "block";
   document.getElementById("summaryPanel").style.display = "flex";
@@ -71,7 +78,7 @@ async function runAllTests() {
   const alias = document.getElementById("journalSelect").value;
   const journal = journals.find(j => j.alias === alias);
   if (!journal) {
-    isRunning = false;
+    currentAbortController = null;
     return;
   }
   const prodBase = journal.prodUrl;
@@ -108,6 +115,7 @@ async function runAllTests() {
 
   setExternalState(externalBaseUrl, externalContext);
 
+  // Update copy button URL (only for copying, not for navigation)
   const currentUrl = getCurrentStateUrl();
   const copyBtn = document.getElementById("copyUrlBtn");
   copyBtn.onclick = () => {
@@ -118,12 +126,20 @@ async function runAllTests() {
 
   document.getElementById("progressMsg").innerText = "Running tests...";
   try {
-    await buildTable(endpointGroups, prodBase, testBase, alias, hasExternal, externalFullBase, null);
+    await buildTable(endpointGroups, prodBase, testBase, alias, hasExternal, externalFullBase, signal);
   } catch (err) {
-    console.error(err);
-    document.getElementById("progressMsg").innerText = "Error running tests.";
+    if (err.name === 'AbortError') {
+      console.log('Tests aborted by user');
+      document.getElementById("progressMsg").innerText = "Tests stopped by user.";
+    } else {
+      console.error(err);
+      document.getElementById("progressMsg").innerText = "Error running tests.";
+    }
   } finally {
-    isRunning = false;
+    // Clear the controller only if it's the same one (avoid clearing a newer one)
+    if (currentAbortController && currentAbortController.signal === signal) {
+      currentAbortController = null;
+    }
   }
 }
 
@@ -138,6 +154,7 @@ async function initialize() {
   await loadJournalsFromCSV();
   applyModeParamsFromUrl();
   document.getElementById("progressMsg").innerText = "Ready. Click RUN ALL TESTS to start.";
+  // NO automatic test run
 }
 
 function populateSelectAndStart() {
@@ -148,6 +165,8 @@ function populateSelectAndStart() {
   document.getElementById("runTestsBtn").addEventListener("click", () => runAllTests());
   document.getElementById("runTestsBtnBottom").addEventListener("click", () => runAllTests());
   document.getElementById("resetExternalBtn").addEventListener("click", () => resetExternalToDemo());
+  
+  // Stop button removed – not needed
   
   const errorBtn = document.getElementById("errorToggleBtn");
   errorBtn.addEventListener("click", () => {
