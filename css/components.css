@@ -103,3 +103,32 @@ footer {
   0% { opacity: 0.4; }
   100% { opacity: 1; }
 }
+
+/* Añadir al archivo css/components.css o crear uno nuevo */
+.stop-btn {
+  background: #6c757d;
+  border: none;
+  color: white;
+  padding: 6px 18px;
+  font-weight: 500;
+  cursor: pointer;
+  font-size: 0.8rem;
+  border-radius: 30px;
+  transition: background 0.2s;
+}
+.stop-btn.active {
+  background: #dc3545;
+}
+.stop-btn.active:hover {
+  background: #c82333;
+}
+.stop-btn:disabled {
+  background: #6c757d;
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+.run-tests-btn.disabled {
+  background: #6c757d;
+  cursor: not-allowed;
+  opacity: 0.6;
+}
