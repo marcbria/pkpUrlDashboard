@@ -48,7 +48,10 @@ export async function checkUrlViaProxy(url, useDelay = false, signal = null) {
     const data = await res.json();
     return { status: data.status };
   } catch (err) {
-    if (err.name === 'AbortError') throw err;
+    if (err.name === 'AbortError') {
+      console.log('Fetch aborted:', url);
+      throw err;
+    }
     return { status: 0 };
   }
 }
@@ -76,7 +79,6 @@ export async function testAndRenderCell(cell, url, isRoot = false, useDelay = fa
   const { status } = statusData;
   let bgClass = getBgClass(status);
   let inlineStyle = '';
-  // Force blue background for filtered status (460) as fallback
   if (status === 460) {
     inlineStyle = 'background-color: #b8e1fc; border-left: 3px solid #1e88e5;';
   }
