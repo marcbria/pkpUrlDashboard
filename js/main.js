@@ -23,7 +23,7 @@ function applyModeParamsFromUrl() {
   if (basicParam !== null) {
     basicCheckbox.checked = basicParam === '1';
   } else {
-    basicCheckbox.checked = true; // por defecto
+    basicCheckbox.checked = true;
   }
   if (cleanUrlsParam !== null) {
     cleanUrlsCheckbox.checked = cleanUrlsParam === '1';
@@ -102,9 +102,23 @@ async function runAllTests() {
     urlParams.set('external_context', externalContext);
   }
   const currentUrl = `${window.location.pathname}?${urlParams.toString()}`;
+  
   const copyBtn = document.getElementById("copyUrlBtn");
   copyBtn.onclick = () => {
-    navigator.clipboard.writeText(window.location.origin + currentUrl).then(() => alert("URL copied to clipboard!")).catch(() => alert("Failed to copy URL"));
+    const freshFilterState = getCurrentFilterState();
+    const freshUrlParams = new URLSearchParams();
+    freshUrlParams.set('journal', document.getElementById("journalSelect").value);
+    freshUrlParams.set('basic', freshFilterState.basic ? '1' : '0');
+    freshUrlParams.set('cleanUrls', freshFilterState.cleanUrls ? '1' : '0');
+    freshUrlParams.set('hideContext', freshFilterState.hideContext ? '1' : '0');
+    if (document.getElementById("externalBaseUrl").value.trim() !== "" && document.getElementById("externalContext").value.trim() !== "") {
+      freshUrlParams.set('external_base_url', externalBaseUrl);
+      freshUrlParams.set('external_context', externalContext);
+    }
+    const freshUrl = `${window.location.pathname}?${freshUrlParams.toString()}`;
+    navigator.clipboard.writeText(window.location.origin + freshUrl)
+      .then(() => alert("URL copied to clipboard!"))
+      .catch(() => alert("Failed to copy URL"));
   };
 
   document.getElementById("progressMsg").innerText = "Running tests...";
@@ -118,13 +132,13 @@ function resetExternalToDemo() {
 }
 
 async function initialize() {
-  // Cargar datos necesarios
+  // Cargar datos necesarios pero NO ejecutar tests automáticamente
   await loadEndpointsFromJSON();
   await loadJournalsFromCSV();
-  // Aplicar modos desde la URL (o por defecto)
+  // Aplicar modos desde la URL (o por defecto) – sin ejecutar tests
   applyModeParamsFromUrl();
-  // Ejecutar tests automáticamente
-  await runAllTests();
+  // NO llamar a runAllTests() aquí
+  document.getElementById("progressMsg").innerText = "Ready. Click RUN ALL TESTS to start.";
 }
 
 function populateSelectAndStart() {
@@ -143,7 +157,7 @@ function populateSelectAndStart() {
     errorBtn.innerHTML = newValue ? "✔️ Show all rows" : "❗ Show errors only";
     applyErrorFilter();
   });
-  // Iniciar la carga automática
+  // Iniciar la carga de datos (sin tests automáticos)
   initialize();
 }
 

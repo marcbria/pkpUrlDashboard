@@ -56,7 +56,7 @@ export function getBgClass(status) {
   if (status === 0) return "bg-error";
   if (status >= 200 && status < 300) return "bg-success";
   if (status >= 300 && status < 400) return "bg-redirect";
-  if (status === 401 || status === 403) return "bg-error"; // 🔒 Cambiado a error
+  if (status === 401 || status === 403) return "bg-unauthorized";  // Cambiado: naranja/amarillo
   return "bg-error";
 }
 
