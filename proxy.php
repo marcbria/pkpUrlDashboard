@@ -67,7 +67,7 @@ if (isset($_GET['delay']) && is_numeric($_GET['delay'])) {
     }
 }
 
-$timeout = 10; 
+$timeout = 10;
 $ch = curl_init();
 
 // Configuración base
@@ -115,6 +115,37 @@ if ($error) {
 } else {
     $statusCode = $info['http_code'];
     $finalUrl = $info['url'];
+    
+    // Detección de páginas de error 404 basada en el contenido
+    if ($statusCode >= 200 && $statusCode < 300) {
+        $lowerResponse = strtolower($response);
+        $notFoundPatterns = [
+            '404 not found',
+            'page not found',
+            'the requested url was not found on this server',
+            '<title>404',
+            'error 404',
+            'not found</title>',
+            'the page you requested was not found'
+        ];
+        
+        $isNotFound = false;
+        foreach ($notFoundPatterns as $pattern) {
+            if (strpos($lowerResponse, $pattern) !== false) {
+                $isNotFound = true;
+                break;
+            }
+        }
+        
+        // Si el contenido es muy corto (menos de 100 caracteres) y parece un error
+        if (strlen($response) < 100 && preg_match('/404|not found/i', $response)) {
+            $isNotFound = true;
+        }
+        
+        if ($isNotFound) {
+            $statusCode = 404;
+        }
+    }
 }
 
 header('Content-Type: application/json');

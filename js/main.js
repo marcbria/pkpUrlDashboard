@@ -132,12 +132,9 @@ function resetExternalToDemo() {
 }
 
 async function initialize() {
-  // Cargar datos necesarios pero NO ejecutar tests automáticamente
   await loadEndpointsFromJSON();
   await loadJournalsFromCSV();
-  // Aplicar modos desde la URL (o por defecto) – sin ejecutar tests
   applyModeParamsFromUrl();
-  // NO llamar a runAllTests() aquí
   document.getElementById("progressMsg").innerText = "Ready. Click RUN ALL TESTS to start.";
 }
 
@@ -157,7 +154,6 @@ function populateSelectAndStart() {
     errorBtn.innerHTML = newValue ? "✔️ Show all rows" : "❗ Show errors only";
     applyErrorFilter();
   });
-  // Iniciar la carga de datos (sin tests automáticos)
   initialize();
 }
 
