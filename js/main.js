@@ -1,5 +1,5 @@
 // ============================================================
-// main.js - Entry point and event handlers (with abort and button state)
+// main.js - Entry point and event handlers (stop without auto-restart)
 // ============================================================
 
 import { journals, loadJournalsFromCSV, loadEndpointsFromJSON, updateProdTestUrls, endpointGroups } from './dataLoader.js';
@@ -10,22 +10,17 @@ let externalBaseUrl = "";
 let externalContext = "";
 let currentAbortController = null;
 
-// Helper to update the appearance and text of both run buttons
 function setRunButtonsState(running) {
   const runBtnTop = document.getElementById("runTestsBtn");
   const runBtnBottom = document.getElementById("runTestsBtnBottom");
   if (!runBtnTop || !runBtnBottom) return;
 
   if (running) {
-    // Running state: red background, text "RESTART TESTS"
-    runBtnTop.textContent = "RESTART TESTS";
-    runBtnBottom.textContent = "RESTART TESTS";
+    runBtnTop.textContent = "STOP";
+    runBtnBottom.textContent = "STOP";
     runBtnTop.style.backgroundColor = "#dc3545";
     runBtnBottom.style.backgroundColor = "#dc3545";
-    runBtnTop.style.border = "none";
-    runBtnBottom.style.border = "none";
   } else {
-    // Idle state: original blue, text "RUN ALL TESTS"
     runBtnTop.textContent = "RUN ALL TESTS";
     runBtnBottom.textContent = "RUN ALL TESTS";
     runBtnTop.style.backgroundColor = "#2c6e9e";
@@ -33,7 +28,6 @@ function setRunButtonsState(running) {
   }
 }
 
-// Read mode parameters from URL and apply to checkboxes
 function applyModeParamsFromUrl() {
   const urlParams = new URLSearchParams(window.location.search);
   const basicParam = urlParams.get('basic');
@@ -79,23 +73,24 @@ function getCurrentStateUrl() {
 }
 
 async function runAllTests() {
-  // If there is already a running test, abort it and restart
+  // If a test run is already in progress, stop it and reset button state
   if (currentAbortController) {
     currentAbortController.abort();
-    // Wait a tiny bit for abort to propagate
+    // Wait a bit for the abort to propagate (optional)
     await new Promise(resolve => setTimeout(resolve, 50));
-    // The abort will eventually reset the button state in the finally block
-    // But we also want to start a new run immediately after abort.
+    // Reset button state to idle (no auto-start)
+    setRunButtonsState(false);
+    currentAbortController = null;
+    document.getElementById("progressMsg").innerText = "Tests stopped. Click RUN ALL TESTS to start.";
+    return;
   }
 
-  // Create a new AbortController for this test run
+  // No test running: start a new test run
   currentAbortController = new AbortController();
   const signal = currentAbortController.signal;
 
-  // Set button state to "running" (red, "RESTART TESTS")
   setRunButtonsState(true);
 
-  // Show UI elements
   document.getElementById("toolbar").style.display = "flex";
   document.getElementById("tableWrapper").style.display = "block";
   document.getElementById("summaryPanel").style.display = "flex";
@@ -142,7 +137,6 @@ async function runAllTests() {
 
   setExternalState(externalBaseUrl, externalContext);
 
-  // Update copy button URL (only for copying, not for navigation)
   const currentUrl = getCurrentStateUrl();
   const copyBtn = document.getElementById("copyUrlBtn");
   copyBtn.onclick = () => {
@@ -163,10 +157,9 @@ async function runAllTests() {
       document.getElementById("progressMsg").innerText = "Error running tests.";
     }
   } finally {
-    // Reset button state to idle
-    setRunButtonsState(false);
-    // Clear the controller only if it's the same one (avoid clearing a newer one)
+    // Only reset button state if this run wasn't aborted in the meantime
     if (currentAbortController && currentAbortController.signal === signal) {
+      setRunButtonsState(false);
       currentAbortController = null;
     }
   }
@@ -183,7 +176,6 @@ async function initialize() {
   await loadJournalsFromCSV();
   applyModeParamsFromUrl();
   document.getElementById("progressMsg").innerText = "Ready. Click RUN ALL TESTS to start.";
-  // Ensure buttons are in idle state (default)
   setRunButtonsState(false);
 }
 
@@ -195,8 +187,6 @@ function populateSelectAndStart() {
   document.getElementById("runTestsBtn").addEventListener("click", () => runAllTests());
   document.getElementById("runTestsBtnBottom").addEventListener("click", () => runAllTests());
   document.getElementById("resetExternalBtn").addEventListener("click", () => resetExternalToDemo());
-  
-  // Stop button removed – not needed
   
   const errorBtn = document.getElementById("errorToggleBtn");
   errorBtn.addEventListener("click", () => {
