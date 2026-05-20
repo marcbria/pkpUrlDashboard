@@ -1,5 +1,5 @@
 // ============================================================
-// main.js - Entry point and event handlers
+// main.js - Entry point and event handlers (simplified)
 // ============================================================
 
 import { journals, loadJournalsFromCSV, loadEndpointsFromJSON, updateProdTestUrls, endpointGroups } from './dataLoader.js';
@@ -8,9 +8,8 @@ import { setExternalState, setCurrentErrorOnly, updateActiveFilters, buildTable,
 
 let externalBaseUrl = "";
 let externalContext = "";
-let currentAbortController = null;
+let isRunning = false;
 
-// Read mode parameters from URL and apply to checkboxes
 function applyModeParamsFromUrl() {
   const urlParams = new URLSearchParams(window.location.search);
   const basicParam = urlParams.get('basic');
@@ -21,24 +20,14 @@ function applyModeParamsFromUrl() {
   const cleanUrlsCheckbox = document.getElementById('filterCleanUrls');
   const hideContextCheckbox = document.getElementById('filterHideContext');
   
-  if (basicParam !== null) {
-    basicCheckbox.checked = basicParam === '1';
-  } else {
-    basicCheckbox.checked = true;
-  }
-  if (cleanUrlsParam !== null) {
-    cleanUrlsCheckbox.checked = cleanUrlsParam === '1';
-  } else {
-    cleanUrlsCheckbox.checked = false;
-  }
-  if (hideContextParam !== null) {
-    hideContextCheckbox.checked = hideContextParam === '1';
-  } else {
-    hideContextCheckbox.checked = false;
-  }
+  if (basicParam !== null) basicCheckbox.checked = basicParam === '1';
+  else basicCheckbox.checked = true;
+  if (cleanUrlsParam !== null) cleanUrlsCheckbox.checked = cleanUrlsParam === '1';
+  else cleanUrlsCheckbox.checked = false;
+  if (hideContextParam !== null) hideContextCheckbox.checked = hideContextParam === '1';
+  else hideContextCheckbox.checked = false;
 }
 
-// Get current filter state from checkboxes
 function getCurrentFilterState() {
   return {
     basic: document.getElementById('filterBasic').checked,
@@ -47,7 +36,6 @@ function getCurrentFilterState() {
   };
 }
 
-// Build current URL with all parameters (journal, filters, external)
 function getCurrentStateUrl() {
   const alias = document.getElementById("journalSelect").value;
   const filterState = getCurrentFilterState();
@@ -59,29 +47,21 @@ function getCurrentStateUrl() {
   urlParams.set('cleanUrls', filterState.cleanUrls ? '1' : '0');
   urlParams.set('hideContext', filterState.hideContext ? '1' : '0');
   if (externalBase && externalCtx) {
-    urlParams.set('external_base_url', normalizeExternalBase(externalBase) || externalBase);
+    const normalized = normalizeExternalBase(externalBase);
+    urlParams.set('external_base_url', normalized || externalBase);
     urlParams.set('external_context', externalCtx);
   }
   return `${window.location.pathname}?${urlParams.toString()}`;
 }
 
 async function runAllTests() {
-  // If there is already an ongoing or aborted test run, reload the page to reset everything
-  if (currentAbortController) {
+  if (isRunning) {
     const url = getCurrentStateUrl();
     window.location.href = url;
     return;
   }
 
-  currentAbortController = new AbortController();
-  const signal = currentAbortController.signal;
-
-  const runBtn = document.getElementById("runTestsBtn");
-  const stopBtn = document.getElementById("stopTestsBtn");
-  runBtn.disabled = true;
-  stopBtn.disabled = false;
-  runBtn.classList.add("disabled");
-  stopBtn.classList.add("active");
+  isRunning = true;
 
   document.getElementById("toolbar").style.display = "flex";
   document.getElementById("tableWrapper").style.display = "block";
@@ -90,7 +70,10 @@ async function runAllTests() {
   updateActiveFilters();
   const alias = document.getElementById("journalSelect").value;
   const journal = journals.find(j => j.alias === alias);
-  if (!journal) return;
+  if (!journal) {
+    isRunning = false;
+    return;
+  }
   const prodBase = journal.prodUrl;
   const testBase = getTestBase(alias, prodBase, journal.testUrl);
   const rawExternalBase = document.getElementById("externalBaseUrl").value.trim();
@@ -125,7 +108,6 @@ async function runAllTests() {
 
   setExternalState(externalBaseUrl, externalContext);
 
-  // Update copy button URL (but without reloading)
   const currentUrl = getCurrentStateUrl();
   const copyBtn = document.getElementById("copyUrlBtn");
   copyBtn.onclick = () => {
@@ -136,21 +118,12 @@ async function runAllTests() {
 
   document.getElementById("progressMsg").innerText = "Running tests...";
   try {
-    await buildTable(endpointGroups, prodBase, testBase, alias, hasExternal, externalFullBase, signal);
+    await buildTable(endpointGroups, prodBase, testBase, alias, hasExternal, externalFullBase, null);
   } catch (err) {
-    if (err.name === 'AbortError') {
-      console.log('Tests aborted by user');
-      document.getElementById("progressMsg").innerText = "Tests stopped by user.";
-    } else {
-      console.error(err);
-      document.getElementById("progressMsg").innerText = "Error running tests.";
-    }
+    console.error(err);
+    document.getElementById("progressMsg").innerText = "Error running tests.";
   } finally {
-    runBtn.disabled = false;
-    stopBtn.disabled = true;
-    runBtn.classList.remove("disabled");
-    stopBtn.classList.remove("active");
-    currentAbortController = null;
+    isRunning = false;
   }
 }
 
@@ -179,9 +152,8 @@ function populateSelectAndStart() {
   const stopBtn = document.getElementById("stopTestsBtn");
   if (stopBtn) {
     stopBtn.addEventListener("click", () => {
-      if (currentAbortController) {
-        currentAbortController.abort();
-      }
+      const url = getCurrentStateUrl();
+      window.location.href = url;
     });
   }
   
