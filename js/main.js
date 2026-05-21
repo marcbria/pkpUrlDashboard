@@ -5,16 +5,14 @@
 import { journals, loadJournalsFromCSV, loadEndpointsFromJSON, updateProdTestUrls, endpointGroups } from './dataLoader.js';
 import { getTestBase, normalizeExternalBase, getFullExternalBase, registerExternalDomain } from './helpers.js';
 import { setExternalState, setCurrentErrorOnly, updateActiveFilters, buildTable, clearTableAndSummary, applyErrorFilter } from './tableRenderer.js';
-
-// Constant for cleanup waiting time (in seconds)
-const CLEANUP_WAIT_SECONDS = 60;
+import { CLEANUP_WAIT_SECONDS } from './constants.js';
 
 let externalBaseUrl = "";
 let externalContext = "";
 let currentAbortController = null;
 let isRunning = false;
 let cleanupTimer = null;
-let cleanupSeconds = 0;
+let remainingSeconds = 0;
 
 function applyModeParamsFromUrl() {
   const urlParams = new URLSearchParams(window.location.search);
@@ -60,16 +58,16 @@ function getCurrentStateUrl() {
   return `${window.location.pathname}?${urlParams.toString()}`;
 }
 
-// Stop function: aborts fetches, shows count-up timer, then reloads after CLEANUP_WAIT_SECONDS
+// Stop function: aborts fetches, shows countdown timer, then reloads
 async function stopAndReload() {
   if (!isRunning) return;
 
   // Cancel any previous timer
   if (cleanupTimer) clearInterval(cleanupTimer);
-  cleanupSeconds = 0;
+  remainingSeconds = CLEANUP_WAIT_SECONDS;
 
   const progressMsg = document.getElementById("progressMsg");
-  progressMsg.innerText = `Stopping tests and cleaning up pending requests... (${cleanupSeconds} s)`;
+  progressMsg.innerText = `Stopping tests and cleaning up pending requests... (${remainingSeconds} s remaining)`;
 
   // Abort all active fetch requests
   if (currentAbortController) {
@@ -86,20 +84,20 @@ async function stopAndReload() {
   runBtn.disabled = true;
   runBtnBottom.disabled = true;
 
-  // Start count-up timer (updates every second)
+  // Start countdown timer (updates every second)
   cleanupTimer = setInterval(() => {
-    cleanupSeconds++;
-    progressMsg.innerText = `Stopping tests and cleaning up pending requests... (${cleanupSeconds} s)`;
+    remainingSeconds--;
+    if (remainingSeconds >= 0) {
+      progressMsg.innerText = `Stopping tests and cleaning up pending requests... (${remainingSeconds} s remaining)`;
+    }
+    if (remainingSeconds <= 0) {
+      clearInterval(cleanupTimer);
+      cleanupTimer = null;
+      // Reload page preserving current state
+      const currentUrl = getCurrentStateUrl();
+      window.location.href = currentUrl;
+    }
   }, 1000);
-
-  // Wait CLEANUP_WAIT_SECONDS seconds, then reload page
-  setTimeout(() => {
-    if (cleanupTimer) clearInterval(cleanupTimer);
-    cleanupTimer = null;
-    // Reload page preserving current state
-    const currentUrl = getCurrentStateUrl();
-    window.location.href = currentUrl;
-  }, CLEANUP_WAIT_SECONDS * 1000);
 }
 
 async function runAllTests() {
