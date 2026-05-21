@@ -2,7 +2,7 @@
 // helpers.js - Utility functions (with fetch timeout)
 // ============================================================
 
-import { PROXY_PATH, EXTERNAL_DELAY_US } from './constants.js';
+import { PROXY_PATH, EXTERNAL_DELAY_US, FETCH_TIMEOUT_MS } from './constants.js';
 
 export function normalizeExternalBase(raw) {
   if (!raw) return "";
@@ -39,7 +39,7 @@ export function replaceAlias(pathTemplate, alias) {
   return pathTemplate.replace(/{alias}/g, alias);
 }
 
-async function fetchWithTimeout(url, options, timeoutMs = 20000) {
+async function fetchWithTimeout(url, options, timeoutMs = FETCH_TIMEOUT_MS) {
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
   try {
@@ -60,7 +60,7 @@ export async function checkUrlViaProxy(url, useDelay = false, signal = null) {
     if (signal) {
       response = await fetch(proxyUrl, { signal });
     } else {
-      response = await fetchWithTimeout(proxyUrl, {}, 20000);
+      response = await fetchWithTimeout(proxyUrl, {});
     }
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
     const data = await response.json();

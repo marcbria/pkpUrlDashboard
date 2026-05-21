@@ -1,7 +1,7 @@
 <?php
 /**
  * proxy.php - CORS-free URL status checker with dynamic domain whitelist
- * Timeout 10s for faster failure.
+ * Optimized: single GET request, no body analysis, 5s timeout.
  */
 session_start();
 
@@ -25,6 +25,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'HEAD' && isset($_GET['add_domain'])) {
         $_SESSION['allowedDomains'][] = $newDomain;
     }
     http_response_code(200);
+    exit;
+}
+
+// Status endpoint (for future use, not used now)
+if (isset($_GET['status'])) {
+    header('Content-Type: application/json');
+    echo json_encode(['active_requests' => 0]);
     exit;
 }
 
@@ -58,110 +65,76 @@ if (!$allowed) {
     exit;
 }
 
+// Optional artificial delay (for external testing)
 if (isset($_GET['delay']) && is_numeric($_GET['delay'])) {
-    usleep(min((int)$_GET['delay'], 10000000));
+    usleep(min((int)$_GET['delay'], 5000000));
 }
 
-$timeout = 10;  // Reduced from 15 to 10 seconds
+// Timeout reduced to 5 seconds for faster tests
+$timeout = 5;
 $userAgent = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:109.0) Gecko/20100101 Firefox/115.0';
 
-function fetchFull($url, $timeout) {
-    $ch = curl_init();
-    curl_setopt_array($ch, [
-        CURLOPT_URL => $url,
-        CURLOPT_RETURNTRANSFER => true,
-        CURLOPT_FOLLOWLOCATION => true,
-        CURLOPT_MAXREDIRS => 10,
-        CURLOPT_TIMEOUT => $timeout,
-        CURLOPT_USERAGENT => $GLOBALS['userAgent'],
-        CURLOPT_SSL_VERIFYPEER => false,
-        CURLOPT_SSL_VERIFYHOST => false,
-        CURLOPT_HEADER => true,
-        CURLOPT_ENCODING => '',
-        CURLOPT_HTTPHEADER => [
-            'Accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
-            'Accept-Language: es-ES,es;q=0.8,en-US;q=0.5,en;q=0.3',
-            'Connection: keep-alive'
-        ]
-    ]);
-    $response = curl_exec($ch);
-    $info = curl_getinfo($ch);
-    $error = curl_error($ch);
-    $headerSize = $info['header_size'];
-    $headers = substr($response, 0, $headerSize);
-    $body = substr($response, $headerSize);
-    curl_close($ch);
-    return [
-        'status'  => $error ? 0 : $info['http_code'],
-        'finalUrl' => $error ? $url : $info['url'],
-        'headers' => $headers,
-        'body'    => $body,
-        'error'   => $error
-    ];
+// Single request: follow redirects, return final status code, no body download if not needed
+$ch = curl_init();
+curl_setopt_array($ch, [
+    CURLOPT_URL => $url,
+    CURLOPT_NOBODY => false,           // We still want headers and possibly small body for detection
+    CURLOPT_FOLLOWLOCATION => true,
+    CURLOPT_MAXREDIRS => 5,            // Reduce max redirects
+    CURLOPT_TIMEOUT => $timeout,
+    CURLOPT_USERAGENT => $userAgent,
+    CURLOPT_SSL_VERIFYPEER => false,
+    CURLOPT_SSL_VERIFYHOST => false,
+    CURLOPT_HEADER => true,
+    CURLOPT_RETURNTRANSFER => true,
+    CURLOPT_ENCODING => '',
+    CURLOPT_HTTPHEADER => [
+        'Accept: text/html,application/xhtml+xml,application/xml;q=0.9',
+        'Accept-Language: en-US,en;q=0.5',
+        'Connection: close'              // Avoid keep-alive overhead
+    ]
+]);
+
+$response = curl_exec($ch);
+$info = curl_getinfo($ch);
+$error = curl_error($ch);
+$headerSize = $info['header_size'];
+$headers = substr($response, 0, $headerSize);
+$body = substr($response, $headerSize);
+curl_close($ch);
+
+if ($error) {
+    http_response_code(500);
+    header('Content-Type: application/json');
+    echo json_encode(['error' => 'cURL error: ' . $error]);
+    exit;
 }
 
-$head = fetchFull($url, $timeout);
-$statusCode = $head['status'];
-$finalUrl = $head['finalUrl'];
+$statusCode = $info['http_code'];
 
-if ($statusCode >= 200 && $statusCode < 300 && !$head['error']) {
-    $get = fetchFull($url, $timeout);
-    if ($get['status'] >= 200 && $get['status'] < 300) {
-        $body = $get['body'];
-        $headers = $get['headers'];
-
-        // Manual decompression
-        if (preg_match('/Content-Encoding:\s*(gzip|deflate)/i', $headers, $matches)) {
-            $encoding = strtolower($matches[1]);
-            if ($encoding === 'gzip') {
-                $body = @gzdecode($body);
-            } elseif ($encoding === 'deflate') {
-                $body = @gzuncompress($body);
-            }
-            if ($body === false) {
-                $body = $get['body'];
-            }
+// Quick soft 404 detection only for 200 responses (check first 2KB)
+if ($statusCode == 200) {
+    $sample = substr($body, 0, 2048);
+    $lower = strtolower($sample);
+    $soft404Patterns = [
+        '404 not found', 'not found</title>', '<title>404', 'page not found',
+        'the requested url was not found', 'status 404', 'we couldn\'t find'
+    ];
+    $isSoft404 = false;
+    foreach ($soft404Patterns as $pattern) {
+        if (strpos($lower, $pattern) !== false) {
+            $isSoft404 = true;
+            break;
         }
-
-        $bodySample = substr($body, 0, 5000);
-        $lower = strtolower($bodySample);
-
-        // Detect filters like Anubis → status 460 (Filtered)
-        if (strpos($lower, 'validating your request') !== false ||
-            strpos($lower, 'anubis') !== false ||
-            strpos($lower, 'within.website') !== false ||
-            strpos($lower, 'please wait while we verify') !== false ||
-            strpos($lower, 'checking your browser') !== false) {
-            $statusCode = 460;
-        }
-        // Soft 404 detection (only if not filtered)
-        elseif ($statusCode == 200) {
-            $patterns = [
-                '404 not found',
-                'not found</title>',
-                '<title>404 not found</title>',
-                '<title>page not found</title>',
-                'the requested url was not found on this server',
-                'the page you requested was not found',
-                '<!doctype html public "-//ietf//dtd html 2.0//en">',
-                'http/1.1 404 not found',
-                'status 404',
-                'we couldn\'t find the page'
-            ];
-            $is404 = false;
-            foreach ($patterns as $pattern) {
-                if (strpos($lower, $pattern) !== false) {
-                    $is404 = true;
-                    break;
-                }
-            }
-            if (!$is404 && strlen($body) < 1000 && preg_match('/404|not found/i', $body)) {
-                $is404 = true;
-            }
-            if ($is404) {
-                $statusCode = 404;
-            }
-        }
+    }
+    if ($isSoft404) {
+        $statusCode = 404;
+    }
+    // Optional: detect filters (like Anubis) – keep lightweight
+    if (strpos($lower, 'validating your request') !== false ||
+        strpos($lower, 'anubis') !== false ||
+        strpos($lower, 'please wait while we verify') !== false) {
+        $statusCode = 460;
     }
 }
 
@@ -169,6 +142,6 @@ header('Content-Type: application/json');
 echo json_encode([
     'url' => $url,
     'status' => $statusCode,
-    'finalUrl' => $finalUrl,
-    'error' => $head['error'] ?: null
+    'finalUrl' => $info['url'],
+    'error' => null
 ]);
