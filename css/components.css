@@ -130,3 +130,22 @@ footer {
   cursor: not-allowed;
   opacity: 0.6;
 }
+
+/* Botón RUN en modo STOP (mismo estilo que .stop-btn) */
+#runTestsBtn.stop-btn,
+#runTestsBtnBottom.stop-btn {
+  background: #dc3545;
+  border: none;
+  color: white;
+  padding: 10px 32px;
+  font-weight: 600;
+  font-size: 1.1rem;
+  cursor: pointer;
+  border-radius: 40px;
+  transition: background 0.2s;
+  box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+}
+#runTestsBtn.stop-btn:hover,
+#runTestsBtnBottom.stop-btn:hover {
+  background: #c82333;
+}

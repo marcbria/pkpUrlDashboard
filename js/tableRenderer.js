@@ -227,7 +227,6 @@ export async function buildTable(groups, prodBase, testBase, alias, hasExternal,
   }
 
   let totalTests = 0;
-  // Use an array to collect all individual test promises
   const testPromises = [];
 
   for (let group of groups) {
@@ -293,7 +292,6 @@ export async function buildTable(groups, prodBase, testBase, alias, hasExternal,
       const displayPathTest = isRootUrl ? null : replaceAlias(pathTemplate, alias);
       const displayPathExt = isRootUrl ? null : externalDisplayPath;
 
-      // Create the three test promises and store them individually
       const promiseProd = testAndRenderCell(tdProd, prodUrl, isRootUrl, false, displayPathProd, signal);
       const promiseTest = testAndRenderCell(tdTest, testUrl, isRootUrl, false, displayPathTest, signal);
       let promiseExt = Promise.resolve({ status: 0, isError: false });
@@ -301,7 +299,6 @@ export async function buildTable(groups, prodBase, testBase, alias, hasExternal,
         promiseExt = testAndRenderCell(tdExternal, externalUrl, isRootUrl, true, displayPathExt, signal);
       }
 
-      // Wait for all three and update the row
       const rowPromise = Promise.all([promiseProd, promiseTest, promiseExt])
         .then(([prod, test, external]) => {
           tr._prodStatus = prod.status;
@@ -313,7 +310,6 @@ export async function buildTable(groups, prodBase, testBase, alias, hasExternal,
           updateCategorySummary(catRow, groupRows);
         })
         .catch(err => {
-          // If any promise is aborted, we need to abort the whole test run
           if (err.name === 'AbortError') {
             console.log('Test aborted, rethrowing');
             throw err;
@@ -325,13 +321,12 @@ export async function buildTable(groups, prodBase, testBase, alias, hasExternal,
     catRow._groupRows = groupRows;
   }
 
-  // Wait for all row tests to complete; if any throws AbortError, propagate
   try {
     await Promise.all(testPromises);
   } catch (err) {
     if (err.name === 'AbortError') {
       console.log('All tests aborted');
-      document.getElementById("progressMsg").innerText = "Tests stopped by user.";
+      document.getElementById("progressMsg").innerText = "Tests aborted.";
       throw err;
     }
     throw err;
@@ -341,4 +336,12 @@ export async function buildTable(groups, prodBase, testBase, alias, hasExternal,
   document.getElementById("progressMsg").innerText = `Tests completed (${totalTests} endpoints)`;
   applyErrorFilter();
   computeAndDisplaySummary(hasExternal);
+}
+
+// Function to clear table and summary visually (used before reload)
+export function clearTableAndSummary() {
+  const tbody = document.querySelector("#urlTable tbody");
+  if (tbody) tbody.innerHTML = "";
+  const summaryPanel = document.getElementById("summaryPanel");
+  if (summaryPanel) summaryPanel.innerHTML = "";
 }

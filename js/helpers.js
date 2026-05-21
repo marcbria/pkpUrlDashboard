@@ -60,7 +60,7 @@ export async function checkUrlViaProxy(url, useDelay = false, signal = null) {
     if (signal) {
       response = await fetch(proxyUrl, { signal });
     } else {
-      response = await fetchWithTimeout(proxyUrl, {}, 20000); // 20 seconds timeout
+      response = await fetchWithTimeout(proxyUrl, {}, 20000);
     }
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
     const data = await response.json();
