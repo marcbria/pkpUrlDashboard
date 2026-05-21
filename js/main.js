@@ -6,6 +6,9 @@ import { journals, loadJournalsFromCSV, loadEndpointsFromJSON, updateProdTestUrl
 import { getTestBase, normalizeExternalBase, getFullExternalBase, registerExternalDomain } from './helpers.js';
 import { setExternalState, setCurrentErrorOnly, updateActiveFilters, buildTable, clearTableAndSummary, applyErrorFilter } from './tableRenderer.js';
 
+// Constant for cleanup waiting time (in seconds)
+const CLEANUP_WAIT_SECONDS = 60;
+
 let externalBaseUrl = "";
 let externalContext = "";
 let currentAbortController = null;
@@ -57,7 +60,7 @@ function getCurrentStateUrl() {
   return `${window.location.pathname}?${urlParams.toString()}`;
 }
 
-// Stop function: aborts fetches, shows count-up timer, then reloads after 60 seconds
+// Stop function: aborts fetches, shows count-up timer, then reloads after CLEANUP_WAIT_SECONDS
 async function stopAndReload() {
   if (!isRunning) return;
 
@@ -66,7 +69,7 @@ async function stopAndReload() {
   cleanupSeconds = 0;
 
   const progressMsg = document.getElementById("progressMsg");
-  progressMsg.innerText = `Cleaning up pending requests from last execution... (${cleanupSeconds} s)`;
+  progressMsg.innerText = `Stopping tests and cleaning up pending requests... (${cleanupSeconds} s)`;
 
   // Abort all active fetch requests
   if (currentAbortController) {
@@ -86,17 +89,17 @@ async function stopAndReload() {
   // Start count-up timer (updates every second)
   cleanupTimer = setInterval(() => {
     cleanupSeconds++;
-    progressMsg.innerText = `Cleaning up pending requests from last execution... (${cleanupSeconds} s)`;
+    progressMsg.innerText = `Stopping tests and cleaning up pending requests... (${cleanupSeconds} s)`;
   }, 1000);
 
-  // Wait 60 seconds (simulate cleanup), then reload page
+  // Wait CLEANUP_WAIT_SECONDS seconds, then reload page
   setTimeout(() => {
     if (cleanupTimer) clearInterval(cleanupTimer);
     cleanupTimer = null;
     // Reload page preserving current state
     const currentUrl = getCurrentStateUrl();
     window.location.href = currentUrl;
-  }, 60000);
+  }, CLEANUP_WAIT_SECONDS * 1000);
 }
 
 async function runAllTests() {
@@ -182,7 +185,8 @@ async function runAllTests() {
     finishTestRun(false);
   } catch (err) {
     if (err.name === 'AbortError') {
-      return; // stopAndReload handles reload
+      // Do NOT call finishTestRun; stopAndReload already handles UI and reload
+      return;
     } else {
       console.error(err);
       document.getElementById("progressMsg").innerText = "Error running tests.";
@@ -192,6 +196,9 @@ async function runAllTests() {
 }
 
 function finishTestRun(wasAborted = false) {
+  // Prevent finishTestRun from running if we are in the middle of cleanup (timer active)
+  if (cleanupTimer !== null) return;
+
   // Restore buttons to RUN (no emoji)
   const runBtn = document.getElementById("runTestsBtn");
   const runBtnBottom = document.getElementById("runTestsBtnBottom");
