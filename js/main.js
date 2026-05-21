@@ -4,10 +4,14 @@
 
 import { journals, loadJournalsFromCSV, loadEndpointsFromJSON, updateProdTestUrls, endpointGroups } from './dataLoader.js';
 import { getTestBase, normalizeExternalBase, getFullExternalBase, registerExternalDomain } from './helpers.js';
-import { setExternalState, setCurrentErrorOnly, updateActiveFilters, buildTable, applyErrorFilter } from './tableRenderer.js';
+import { setExternalState, setCurrentErrorOnly, updateActiveFilters, buildTable, clearTableAndSummary, applyErrorFilter } from './tableRenderer.js';
 
 let externalBaseUrl = "";
 let externalContext = "";
+let currentAbortController = null;
+let isRunning = false;
+let cleanupTimer = null;
+let cleanupSeconds = 0;
 
 function applyModeParamsFromUrl() {
   const urlParams = new URLSearchParams(window.location.search);
@@ -53,7 +57,71 @@ function getCurrentStateUrl() {
   return `${window.location.pathname}?${urlParams.toString()}`;
 }
 
+// Stop function: aborts fetches, shows count-up timer, then reloads after 60 seconds
+async function stopAndReload() {
+  if (!isRunning) return;
+
+  // Cancel any previous timer
+  if (cleanupTimer) clearInterval(cleanupTimer);
+  cleanupSeconds = 0;
+
+  const progressMsg = document.getElementById("progressMsg");
+  progressMsg.innerText = `Cleaning up pending requests from last execution... (${cleanupSeconds} s)`;
+
+  // Abort all active fetch requests
+  if (currentAbortController) {
+    currentAbortController.abort();
+    currentAbortController = null;
+  }
+
+  // Clear table visually
+  clearTableAndSummary();
+
+  // Disable RUN buttons during cleanup
+  const runBtn = document.getElementById("runTestsBtn");
+  const runBtnBottom = document.getElementById("runTestsBtnBottom");
+  runBtn.disabled = true;
+  runBtnBottom.disabled = true;
+
+  // Start count-up timer (updates every second)
+  cleanupTimer = setInterval(() => {
+    cleanupSeconds++;
+    progressMsg.innerText = `Cleaning up pending requests from last execution... (${cleanupSeconds} s)`;
+  }, 1000);
+
+  // Wait 60 seconds (simulate cleanup), then reload page
+  setTimeout(() => {
+    if (cleanupTimer) clearInterval(cleanupTimer);
+    cleanupTimer = null;
+    // Reload page preserving current state
+    const currentUrl = getCurrentStateUrl();
+    window.location.href = currentUrl;
+  }, 60000);
+}
+
 async function runAllTests() {
+  // If already running, stop and reload
+  if (isRunning) {
+    await stopAndReload();
+    return;
+  }
+
+  // Cancel any previous controller
+  if (currentAbortController) {
+    currentAbortController.abort();
+  }
+  currentAbortController = new AbortController();
+  const signal = currentAbortController.signal;
+  isRunning = true;
+
+  // Change RUN buttons text to STOP (no emoji)
+  const runBtn = document.getElementById("runTestsBtn");
+  const runBtnBottom = document.getElementById("runTestsBtnBottom");
+  runBtn.textContent = "STOP";
+  runBtnBottom.textContent = "STOP";
+  runBtn.classList.add("stop-btn");
+  runBtnBottom.classList.add("stop-btn");
+
   // Show UI elements
   document.getElementById("toolbar").style.display = "flex";
   document.getElementById("tableWrapper").style.display = "block";
@@ -62,7 +130,10 @@ async function runAllTests() {
   updateActiveFilters();
   const alias = document.getElementById("journalSelect").value;
   const journal = journals.find(j => j.alias === alias);
-  if (!journal) return;
+  if (!journal) {
+    finishTestRun(false);
+    return;
+  }
   const prodBase = journal.prodUrl;
   const testBase = getTestBase(alias, prodBase, journal.testUrl);
   const rawExternalBase = document.getElementById("externalBaseUrl").value.trim();
@@ -107,16 +178,35 @@ async function runAllTests() {
 
   document.getElementById("progressMsg").innerText = "Running tests...";
   try {
-    await buildTable(endpointGroups, prodBase, testBase, alias, hasExternal, externalFullBase, null);
+    await buildTable(endpointGroups, prodBase, testBase, alias, hasExternal, externalFullBase, signal);
+    finishTestRun(false);
   } catch (err) {
-    console.error(err);
-    document.getElementById("progressMsg").innerText = "Error running tests.";
+    if (err.name === 'AbortError') {
+      return; // stopAndReload handles reload
+    } else {
+      console.error(err);
+      document.getElementById("progressMsg").innerText = "Error running tests.";
+      finishTestRun(false);
+    }
   }
 }
 
-function stopAndReload() {
-  const url = getCurrentStateUrl();
-  window.location.href = url;
+function finishTestRun(wasAborted = false) {
+  // Restore buttons to RUN (no emoji)
+  const runBtn = document.getElementById("runTestsBtn");
+  const runBtnBottom = document.getElementById("runTestsBtnBottom");
+  runBtn.textContent = "RUN ALL TESTS";
+  runBtnBottom.textContent = "RUN ALL TESTS";
+  runBtn.classList.remove("stop-btn");
+  runBtnBottom.classList.remove("stop-btn");
+  // Ensure they are not disabled
+  runBtn.disabled = false;
+  runBtnBottom.disabled = false;
+  isRunning = false;
+  currentAbortController = null;
+  if (!wasAborted) {
+    document.getElementById("progressMsg").innerText = "Tests completed.";
+  }
 }
 
 function resetExternalToDemo() {
@@ -129,7 +219,6 @@ async function initialize() {
   const progressMsg = document.getElementById("progressMsg");
   progressMsg.innerText = "Loading data...";
   try {
-    // Set a 10-second timeout for data loading
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 10000);
     
@@ -140,7 +229,7 @@ async function initialize() {
     clearTimeout(timeoutId);
     
     applyModeParamsFromUrl();
-    progressMsg.innerText = "Ready. Click RUN ALL TESTS to start.";
+    progressMsg.innerText = "System ready. Click RUN ALL TESTS to start.";
   } catch (err) {
     console.error("Initialization error:", err);
     if (err.name === 'AbortError') {
@@ -156,14 +245,13 @@ function populateSelectAndStart() {
   select.addEventListener("change", () => {
     if (journals.length > 0) updateProdTestUrls();
   });
-  document.getElementById("runTestsBtn").addEventListener("click", () => runAllTests());
-  document.getElementById("runTestsBtnBottom").addEventListener("click", () => runAllTests());
-  document.getElementById("resetExternalBtn").addEventListener("click", () => resetExternalToDemo());
   
-  const stopBtn = document.getElementById("stopTestsBtn");
-  if (stopBtn) {
-    stopBtn.addEventListener("click", () => stopAndReload());
-  }
+  const runBtn = document.getElementById("runTestsBtn");
+  const runBtnBottom = document.getElementById("runTestsBtnBottom");
+  runBtn.addEventListener("click", () => runAllTests());
+  runBtnBottom.addEventListener("click", () => runAllTests());
+  
+  document.getElementById("resetExternalBtn").addEventListener("click", () => resetExternalToDemo());
   
   const errorBtn = document.getElementById("errorToggleBtn");
   errorBtn.addEventListener("click", () => {
